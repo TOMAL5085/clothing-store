@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
-import { Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Moon, Package, Save, ShieldCheck, Shirt, SlidersHorizontal } from "lucide-react";
+import { Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Moon, Package, Save, ShieldCheck, Shirt, SlidersHorizontal, Truck } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import { useAuthStore, type Address, type AddressPayload } from "@/store/authStore";
 import { useOrderStore, type Order } from "@/store/orderStore";
@@ -307,7 +307,7 @@ export default function AccountPage() {
                       </ul>
                       {order.shipment && (
                         <div className="mt-4 border-t border-line pt-4 dark:border-line-dark">
-                          <h3 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">Shipping</h3>
+                          <h3 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen flex items-center gap-2"><Truck className="h-4 w-4" /> Shipping</h3>
                           <dl className="mt-2 space-y-1 text-sm">
                             <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Status</dt><dd className="font-semibold capitalize">{order.shipment.status}</dd></div>
                             {order.shipment.carrier && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Carrier</dt><dd className="font-semibold text-ink dark:text-linen">{order.shipment.carrier}</dd></div>}
@@ -316,6 +316,52 @@ export default function AccountPage() {
                             {order.shipment.shippedAt && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Shipped</dt><dd className="font-semibold text-ink dark:text-linen">{new Date(order.shipment.shippedAt).toLocaleDateString()}</dd></div>}
                             {order.shipment.deliveredAt && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Delivered</dt><dd className="font-semibold text-ink dark:text-linen">{new Date(order.shipment.deliveredAt).toLocaleDateString()}</dd></div>}
                           </dl>
+                          {order.shipment.events && order.shipment.events.length > 0 && (
+                            <div className="mt-4 border-t border-line pt-4 dark:border-line-dark">
+                              <h4 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">Timeline</h4>
+                              <div className="mt-3 space-y-3">
+                                {order.shipment.events
+                                  .slice()
+                                  .sort((a, b) => {
+                                    const timeA = a.occurredAt ? new Date(a.occurredAt).getTime() : 0;
+                                    const timeB = b.occurredAt ? new Date(b.occurredAt).getTime() : 0;
+                                    return timeA - timeB;
+                                  })
+                                  .map((event, index) => {
+                                    const occurredAt = event.occurredAt ? new Date(event.occurredAt) : null;
+                                    return (
+                                      <div key={event.id} className="flex items-start gap-3">
+                                        <div className="flex flex-col items-center">
+                                          <div
+                                            className={`w-3 h-3 rounded-full border-2 ${
+                                              index === 0 ? 'bg-bronze border-bronze' : 'bg-ink border-ink'
+                                            }`}
+                                          />
+                                          {index < (order.shipment?.events?.length ?? 0) - 1 && (
+                                            <div className="w-0.5 h-8 mt-1 bg-line dark:bg-line-dark" />
+                                          )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-semibold text-ink dark:text-linen capitalize">{event.status}</p>
+                                          <p className="text-xs text-smoke dark:text-linen-dim">
+                                            {event.description}
+                                            {event.location && ` — ${event.location}`}
+                                          </p>
+                                          <p className="text-xs text-smoke dark:text-linen-dim mt-1">
+                                            {occurredAt ? occurredAt.toLocaleString('en-US', {
+                                              month: 'short',
+                                              day: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                            }) : 'Unknown date'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

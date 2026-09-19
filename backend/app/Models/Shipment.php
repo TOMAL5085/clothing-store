@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Shipment extends Model
 {
@@ -54,6 +55,11 @@ class Shipment extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(ShipmentEvent::class)->orderBy('occurred_at');
     }
 
     public function canTransitionTo(string $newStatus): bool

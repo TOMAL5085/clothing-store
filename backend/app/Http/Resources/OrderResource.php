@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\ShipmentEventResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -74,6 +75,9 @@ class OrderResource extends JsonResource
                 'estimatedDeliveryAt' => $this->shipment->estimated_delivery_at?->toISOString(),
                 'shippedAt' => $this->shipment->shipped_at?->toISOString(),
                 'deliveredAt' => $this->shipment->delivered_at?->toISOString(),
+                'events' => $this->shipment->relationLoaded('events') 
+                    ? ShipmentEventResource::collection($this->shipment->events) 
+                    : null,
             ] : null),
             'lines' => $this->items->map(fn ($item) => [
                 'id' => "{$item->product_external_id}__{$item->size}",

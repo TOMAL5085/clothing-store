@@ -1,6 +1,6 @@
 # Clothing Store Project Handoff Context
 
-Last verified by opencode on 2026-09-18.
+Last verified by opencode on 2026-09-19.
 
 This file is the handoff document for continuing the project in Cursor. It is based on the current repository state, not on the original prompt alone.
 
@@ -166,12 +166,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":49,"passed":49,"assertions":243,"duration_ms":14756}
+{"tool":"phpunit","result":"passed","tests":59,"passed":59,"assertions":276,"duration_ms":20030}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`) and Phase 4B-1 (`Phase4BShippingTest`).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), and Phase 4B-2 (`Phase4BTrackingTest`).
 
 ## Git State
 
@@ -184,12 +184,29 @@ git status --short --branch
 Result:
 
 ```text
-fatal: not a git repository (or any of the parent directories): .git
+## main...origin/main
+ M CONTEXT.md
+ M backend/app/Http/Controllers/Api/V1/Admin/OrderManagementController.php
+ M backend/app/Http/Controllers/Api/V1/Admin/ShipmentController.php
+ M backend/app/Http/Controllers/Api/V1/OrderController.php
+ M backend/app/Http/Controllers/Api/V1/OrderTrackingController.php
+ M backend/app/Http/Resources/OrderResource.php
+ M backend/app/Models/Order.php
+ M backend/app/Models/Shipment.php
+ M backend/app/Services/ShippingService.php
+ M backend/database/migrations/2026_09_19_000001_create_shipment_events_table.php
+ M backend/routes/api.php
+ M frontend/src/pages/AccountPage.tsx
+ M frontend/src/pages/admin/AdminOrdersPage.tsx
+ M frontend/src/store/orderStore.ts
+A backend/app/Http/Controllers/Api/V1/OrderTrackingController.php
+A backend/app/Http/Resources/ShipmentEventResource.php
+A backend/app/Models/ShipmentEvent.php
+A backend/database/migrations/2026_09_19_000001_create_shipment_events_table.php
+A backend/tests/Feature/Phase4BTrackingTest.php
 ```
 
-Status: ⚠️ no Git repository was detected at `C:\Users\User\Desktop\clothing-store`.
-
-Cursor should not assume branch name, staged files, or diff information are available unless a repository is initialized or opened from a different root.
+Status: ✅ Git repository detected at `C:\Users\User\Desktop\clothing-store`. Current branch: `main`. Last commit: `389dd61` "Complete Phase 4B-1 shipping management".
 
 ## Completed Phases
 
@@ -312,15 +329,32 @@ Implemented:
 - Authorization: customers can only view their own order's shipment; admins have full access.
 - New test file `Phase4BShippingTest` covering: shipment creation, validation, transitions, authorization, resource inclusion.
 
-### Phase 4B-2 - Order Tracking (proposed)
+### Phase 4B-2 - Order Tracking
 
-Phase 4B-1 is complete. Recommended next work:
+Status: ✅ complete.
 
-1. Implement order tracking timeline for customers (Phase 4B-2).
-2. Courier API integration (Phase 4B-3) - build provider abstraction/interface.
-3. Return / Refund / Cancellation Management (Phase 4B-4).
-4. Real courier provider configuration and webhook handling.
-5. Email/SMS notifications for shipping status changes.
+Implemented:
+
+- Shipment events entity with dedicated `shipment_events` table (one-to-many with shipments).
+- ShipmentEvent model with fields: status, location, description, metadata, occurred_at.
+- Automatic event creation on shipment creation and status changes via `ShippingService`.
+- Validated status transitions continue to be enforced with automatic event logging.
+- Shipment events resource for API responses.
+- Customer tracking API endpoint: `GET /api/v1/orders/{order}/tracking` (protected by OrderPolicy).
+- Customer UI (`/account` → Orders) extended with tracking timeline: visual timeline with status dots, descriptions, timestamps.
+- Admin UI (`/admin/orders`) extended with tracking events display in shipping section.
+- Order resource includes shipment events when loaded (`shipment.events`).
+- Authorization: customers can only view their own order's tracking; admins have full access.
+- New test file `Phase4BTrackingTest` covering: event creation on creation/status change, chronological order, customer/admin authorization, tracking endpoint, duplicate event prevention, event timestamps.
+
+### Phase 4B-3 - Courier API Integration (proposed)
+
+Phase 4B-2 is complete. Recommended next work:
+
+1. Courier API integration (Phase 4B-3) - build provider abstraction/interface.
+2. Return / Refund / Cancellation Management (Phase 4B-4).
+3. Real courier provider configuration and webhook handling.
+4. Email/SMS notifications for shipping status changes.
 
 ## Frontend Architecture
 
@@ -513,6 +547,7 @@ Require `auth:sanctum`.
 | DELETE | `/addresses/{address}` | `AddressController@destroy` |
 | GET | `/orders` | `OrderController@index` |
 | GET | `/orders/{order}` | `OrderController@show` |
+| GET | `/orders/{order}/tracking` | `OrderTrackingController@show` |
 
 ### Admin Routes
 
@@ -564,6 +599,7 @@ Migrations currently include:
 - cart variant uniqueness update
 - phase 4 checkout & payment fields (checkout token, country, provider, billing address, payment confirmation fields)
 - shipments (Phase 4B-1)
+- shipment events (Phase 4B-2)
 
 Current migration files:
 
@@ -593,6 +629,7 @@ Current migration files:
 2026_09_18_130100_update_cart_variant_uniqueness.php
 2026_09_18_210000_add_phase4_checkout_payment_fields.php
 2026_09_19_000000_create_shipments_table.php
+2026_09_19_000001_create_shipment_events_table.php
 ```
 
 ## Backend Domain Notes
@@ -904,6 +941,7 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 48 | Order confirmation lookup | ✅ | protected by checkout token |
 | 49 | Admin order management | ✅ | list/filters/detail/status updates |
 | 50 | Shipping management | ✅ | shipments, tracking, admin/customer UI |
+| 51 | Order tracking | ✅ | shipment events, timeline, customer/admin UI |
 
 Legend:
 

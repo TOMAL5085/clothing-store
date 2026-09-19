@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\OrderTrackingController;
 use App\Http\Controllers\Api\V1\OtpController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\ProductController;
@@ -61,6 +62,9 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('addresses', AddressController::class);
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{order}', [OrderController::class, 'show']);
+
+        // Tracking
+        Route::get('orders/{order}/tracking', [OrderTrackingController::class, 'show']);
 
         Route::middleware('can:create,'.\App\Models\Product::class)->prefix('admin')->group(function () {
             Route::get('customers', [CustomerManagementController::class, 'index']);

@@ -12,6 +12,15 @@ export interface OrderAddress {
   country: string;
 }
 
+export interface OrderShipmentEvent {
+  id: number;
+  status: string;
+  statusCode: string;
+  location: string | null;
+  description: string | null;
+  occurredAt: string | null;
+}
+
 export interface OrderShipment {
   id: number;
   status: string;
@@ -23,6 +32,7 @@ export interface OrderShipment {
   estimatedDeliveryAt: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
+  events?: OrderShipmentEvent[];
 }
 
 export interface Order {
