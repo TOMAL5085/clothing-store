@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { Package, RefreshCcw, Search, ShieldAlert } from "lucide-react";
+import { Package, RefreshCcw, Search, ShieldAlert, Truck, MapPin, Calendar } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PaginationMeta } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
@@ -18,6 +18,19 @@ interface AdminOrderLine {
   qty: number;
   unitPrice: number;
   lineTotal: number;
+}
+
+interface AdminOrderShipment {
+  id: number;
+  status: string;
+  statusCode: string;
+  carrier: string | null;
+  trackingNumber: string | null;
+  trackingReference: string | null;
+  shippingFee: number | null;
+  estimatedDeliveryAt: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
 }
 
 interface AdminOrder {
@@ -47,6 +60,7 @@ interface AdminOrder {
     country: string | null;
   };
   payment: { provider: string; status: string; reference: string; amount: number; currency: string; method: string } | null;
+  shipment: AdminOrderShipment | null;
   lines: AdminOrderLine[];
 }
 
@@ -91,6 +105,7 @@ export default function AdminOrdersPage() {
   const [savingId, setSavingId] = useState<string | undefined>();
   const [nextStatus, setNextStatus] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const [showCreateShipment, setShowCreateShipment] = useState<string | null>(null);
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams({ status, payment_status: paymentStatus, per_page: "100" });
@@ -148,6 +163,145 @@ export default function AdminOrdersPage() {
       setSavingId(undefined);
     }
   };
+
+  interface CreateShipmentFormProps {
+    orderId: string;
+    onClose: () => void;
+    onSuccess: () => void;
+  }
+
+  function CreateShipmentForm({ orderId, onClose, onSuccess }: CreateShipmentFormProps) {
+    const [carrier, setCarrier] = useState("");
+    const [trackingNumber, setTrackingNumber] = useState("");
+    const [trackingReference, setTrackingReference] = useState("");
+    const [shippingFee, setShippingFee] = useState("");
+    const [estimatedDelivery, setEstimatedDelivery] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setBusy(true);
+      setError("");
+      try {
+        await api(`/admin/orders/${encodeURIComponent(orderId)}/shipment`, {
+          method: "POST",
+          body: JSON.stringify({
+            carrier: carrier || undefined,
+            tracking_number: trackingNumber || undefined,
+            tracking_reference: trackingReference || undefined,
+            shipping_fee: shippingFee ? parseFloat(shippingFee) : undefined,
+            estimated_delivery_at: estimatedDelivery || undefined,
+          }),
+        });
+        pushToast("Shipment created");
+        onSuccess();
+      } catch (requestError) {
+        setError(requestError instanceof Error ? requestError.message : "Failed to create shipment");
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    return (
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="Carrier" htmlFor="shipment-carrier">
+          <Input id="shipment-carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="e.g., DHL, FedEx, UPS" />
+        </Field>
+        <Field label="Tracking Number" htmlFor="shipment-tracking">
+          <Input id="shipment-tracking" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="e.g., 1234567890" />
+        </Field>
+        <Field label="Tracking Reference" htmlFor="shipment-ref">
+          <Input id="shipment-ref" value={trackingReference} onChange={(e) => setTrackingReference(e.target.value)} placeholder="Internal reference" />
+        </Field>
+        <Field label="Shipping Fee" htmlFor="shipment-fee">
+          <Input id="shipment-fee" type="number" step="0.01" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)} placeholder="0.00" />
+        </Field>
+        <Field label="Estimated Delivery" htmlFor="shipment-est-delivery">
+          <Input id="shipment-est-delivery" type="date" value={estimatedDelivery} onChange={(e) => setEstimatedDelivery(e.target.value)} />
+        </Field>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" icon={Truck} loading={busy}>Create Shipment</Button>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        </div>
+      </form>
+    );
+  }
+
+  interface UpdateShipmentFormProps {
+    order: AdminOrder;
+    onClose: () => void;
+  }
+
+  function UpdateShipmentForm({ order, onClose }: UpdateShipmentFormProps) {
+    const [status, setStatus] = useState(order.shipment?.statusCode ?? "pending");
+    const [carrier, setCarrier] = useState(order.shipment?.carrier ?? "");
+    const [trackingNumber, setTrackingNumber] = useState(order.shipment?.trackingNumber ?? "");
+    const [trackingReference, setTrackingReference] = useState(order.shipment?.trackingReference ?? "");
+    const [shippingFee, setShippingFee] = useState(order.shipment?.shippingFee?.toString() ?? "");
+    const [estimatedDelivery, setEstimatedDelivery] = useState(
+      order.shipment?.estimatedDeliveryAt ? order.shipment.estimatedDeliveryAt.split("T")[0] : ""
+    );
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+
+    const SHIPMENT_STATUSES = ["pending", "processing", "ready_to_ship", "shipped", "in_transit", "out_for_delivery", "delivered", "failed_delivery"] as const;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setBusy(true);
+      setError("");
+      try {
+        await api(`/admin/orders/${encodeURIComponent(order.id)}/shipment`, {
+          method: "PUT",
+          body: JSON.stringify({
+            status,
+            carrier: carrier || undefined,
+            tracking_number: trackingNumber || undefined,
+            tracking_reference: trackingReference || undefined,
+            shipping_fee: shippingFee ? parseFloat(shippingFee) : undefined,
+            estimated_delivery_at: estimatedDelivery || undefined,
+          }),
+        });
+        pushToast("Shipment updated");
+        onClose();
+      } catch (requestError) {
+        setError(requestError instanceof Error ? requestError.message : "Failed to update shipment");
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    return (
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="Status" htmlFor="shipment-status-update">
+          <Select id="shipment-status-update" value={status} onChange={(e) => setStatus(e.target.value)}>
+            {SHIPMENT_STATUSES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+          </Select>
+        </Field>
+        <Field label="Carrier" htmlFor="shipment-carrier-update">
+          <Input id="shipment-carrier-update" value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="e.g., DHL, FedEx, UPS" />
+        </Field>
+        <Field label="Tracking Number" htmlFor="shipment-tracking-update">
+          <Input id="shipment-tracking-update" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="e.g., 1234567890" />
+        </Field>
+        <Field label="Tracking Reference" htmlFor="shipment-ref-update">
+          <Input id="shipment-ref-update" value={trackingReference} onChange={(e) => setTrackingReference(e.target.value)} placeholder="Internal reference" />
+        </Field>
+        <Field label="Shipping Fee" htmlFor="shipment-fee-update">
+          <Input id="shipment-fee-update" type="number" step="0.01" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)} placeholder="0.00" />
+        </Field>
+        <Field label="Estimated Delivery" htmlFor="shipment-est-delivery-update">
+          <Input id="shipment-est-delivery-update" type="date" value={estimatedDelivery} onChange={(e) => setEstimatedDelivery(e.target.value)} />
+        </Field>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" icon={Truck} loading={busy}>Update Shipment</Button>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6 lg:py-16">
@@ -260,6 +414,40 @@ export default function AdminOrdersPage() {
                           <p className="mt-2 text-sm text-smoke dark:text-linen-dim">
                             {order.payment.provider} · {order.payment.method ?? "—"} · {order.payment.reference}
                           </p>
+                        </div>
+                      )}
+                      {order.shipment && (
+                        <div>
+                          <h2 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen flex items-center gap-2"><Truck className="h-4 w-4" /> Shipping</h2>
+                          <dl className="mt-2 space-y-2 text-sm">
+                            <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Status</dt><dd className="font-semibold capitalize">{order.shipment.status}</dd></div>
+                            {order.shipment.carrier && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Carrier</dt><dd className="font-semibold text-ink dark:text-linen">{order.shipment.carrier}</dd></div>}
+                            {order.shipment.trackingNumber && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Tracking</dt><dd className="font-semibold text-ink dark:text-linen">{order.shipment.trackingNumber}</dd></div>}
+                            {order.shipment.trackingReference && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Ref</dt><dd className="font-semibold text-ink dark:text-linen">{order.shipment.trackingReference}</dd></div>}
+                            {order.shipment.shippingFee !== null && order.shipment.shippingFee > 0 && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Fee</dt><dd className="font-semibold text-ink dark:text-linen">{format(order.shipment.shippingFee)}</dd></div>}
+                            {order.shipment.estimatedDeliveryAt && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Est. Delivery</dt><dd className="font-semibold text-ink dark:text-linen">{new Date(order.shipment.estimatedDeliveryAt).toLocaleDateString()}</dd></div>}
+                            {order.shipment.shippedAt && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Shipped</dt><dd className="font-semibold text-ink dark:text-linen">{new Date(order.shipment.shippedAt).toLocaleDateString()}</dd></div>}
+                            {order.shipment.deliveredAt && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Delivered</dt><dd className="font-semibold text-ink dark:text-linen">{new Date(order.shipment.deliveredAt).toLocaleDateString()}</dd></div>}
+                          </dl>
+                        </div>
+                      )}
+                      {!order.shipment && (
+                        <div className="border-t border-line pt-4 dark:border-line-dark">
+                          <h2 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen flex items-center gap-2"><Truck className="h-4 w-4" /> Shipping</h2>
+                          <p className="mt-2 text-sm text-smoke dark:text-linen-dim">No shipment created yet.</p>
+                          <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => void setShowCreateShipment(order.id, true)}>Create Shipment</Button>
+                        </div>
+                      )}
+                      {showCreateShipment === order.id && (
+                        <div className="border-t border-line pt-4 dark:border-line-dark">
+                          <h2 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">Create Shipment</h2>
+                          <CreateShipmentForm orderId={order.id} onClose={() => setShowCreateShipment(null)} onSuccess={() => { setShowCreateShipment(null); }} />
+                        </div>
+                      )}
+                      {order.shipment && (
+                        <div className="border-t border-line pt-4 dark:border-line-dark">
+                          <h2 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">Update Shipment</h2>
+                          <UpdateShipmentForm order={order} onClose={() => {}} />
                         </div>
                       )}
                       <div className="flex flex-wrap items-end gap-2">

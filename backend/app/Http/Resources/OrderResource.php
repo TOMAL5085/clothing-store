@@ -63,6 +63,18 @@ class OrderResource extends JsonResource
                 'currency' => $this->payment->currency,
                 'method' => $this->payment->method,
             ] : null),
+            'shipment' => $this->whenLoaded('shipment', fn () => $this->shipment ? [
+                'id' => $this->shipment->id,
+                'status' => str($this->shipment->status)->headline()->toString(),
+                'statusCode' => $this->shipment->status,
+                'carrier' => $this->shipment->carrier,
+                'trackingNumber' => $this->shipment->tracking_number,
+                'trackingReference' => $this->shipment->tracking_reference,
+                'shippingFee' => $this->shipment->shipping_fee ? (float) $this->shipment->shipping_fee : null,
+                'estimatedDeliveryAt' => $this->shipment->estimated_delivery_at?->toISOString(),
+                'shippedAt' => $this->shipment->shipped_at?->toISOString(),
+                'deliveredAt' => $this->shipment->delivered_at?->toISOString(),
+            ] : null),
             'lines' => $this->items->map(fn ($item) => [
                 'id' => "{$item->product_external_id}__{$item->size}",
                 'productId' => $item->product_external_id,

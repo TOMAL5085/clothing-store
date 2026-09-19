@@ -43,7 +43,7 @@ class OrderManagementController extends Controller
     {
         Gate::authorize('view', $order);
 
-        return OrderResource::make($order->load(['items', 'shippingAddress', 'billingAddress', 'payment', 'user']));
+        return OrderResource::make($order->load(['items', 'shippingAddress', 'billingAddress', 'payment', 'shipment', 'user']));
     }
 
     public function updateStatus(UpdateOrderStatusRequest $request, Order $order): OrderResource

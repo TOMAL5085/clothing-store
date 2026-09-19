@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
 use App\Http\Controllers\Api\V1\Admin\OrderManagementController;
 use App\Http\Controllers\Api\V1\Admin\ProductManagementController;
+use App\Http\Controllers\Api\V1\Admin\ShipmentController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
@@ -73,6 +74,11 @@ Route::prefix('v1')->group(function () {
             Route::get('orders', [OrderManagementController::class, 'index']);
             Route::get('orders/{order}', [OrderManagementController::class, 'show']);
             Route::patch('orders/{order}/status', [OrderManagementController::class, 'updateStatus']);
+
+            // Shipping
+            Route::post('orders/{order}/shipment', [ShipmentController::class, 'store']);
+            Route::get('orders/{order}/shipment', [ShipmentController::class, 'show']);
+            Route::put('orders/{order}/shipment', [ShipmentController::class, 'update']);
         });
     });
 });

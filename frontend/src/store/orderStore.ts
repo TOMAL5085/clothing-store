@@ -12,6 +12,19 @@ export interface OrderAddress {
   country: string;
 }
 
+export interface OrderShipment {
+  id: number;
+  status: string;
+  statusCode: string;
+  carrier: string | null;
+  trackingNumber: string | null;
+  trackingReference: string | null;
+  shippingFee: number | null;
+  estimatedDeliveryAt: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+}
+
 export interface Order {
   id: string;
   lines: CartLine[];
@@ -22,9 +35,10 @@ export interface Order {
   address: OrderAddress;
   method: "standard" | "express";
   createdAt: string;
-  status: "Processing" | "Shipped" | "Delivered";
+  status: "Processing" | "Shipped" | "Delivered" | "Pending" | "Confirmed" | "Cancelled";
   checkoutToken?: string | null;
   paymentStatus?: string;
+  shipment?: OrderShipment | null;
 }
 
 interface OrderState {

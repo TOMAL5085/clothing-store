@@ -166,12 +166,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":39,"passed":39,"assertions":210,"duration_ms":10617}
+{"tool":"phpunit","result":"passed","tests":49,"passed":49,"assertions":243,"duration_ms":14756}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`) and Phase 4B-1 (`Phase4BShippingTest`).
 
 ## Git State
 
@@ -292,19 +292,35 @@ Important lifecycle facts:
 - `markPaid` and `markFailed` are idempotent (payment/order row locks + paid guards), preventing duplicate inventory decrements, double coupon consumption, or double order creation.
 - Payment callbacks/webhooks never trust a browser redirect alone; Stripe uses signature-verified webhooks, SSLCOMMERZ uses server-side val_id validation plus amount matching.
 
-## Next Planned Phase
+### Phase 4B-1 - Shipping & Delivery Management
 
-### Phase 4B - Payment Production Hardening (proposed)
+Status: ✅ complete.
 
-Phase 4A is complete. Recommended next work:
+Implemented:
 
-1. Configure and test real Stripe keys (`STRIPE_KEY`/`STRIPE_SECRET`/`STRIPE_WEBHOOK_SECRET`) and a real live SSLCOMMERZ store (`SSLCOMMERZ_STORE_ID`/`SSLCOMMERZ_STORE_PASSWORD`, `SSLCOMMERZ_SANDBOX=true` until live).
-2. Register the Stripe webhook endpoint (`/api/v1/payments/stripe/webhook`) and the SSLCOMMERZ IPN/success/fail/cancel callback URLs in the provider dashboards.
-3. Verify live payment lifecycle end to end (session init, redirect, webhook/IPN, markPaid, inventory/coupon/cart effects) for both providers.
-4. Review OTP delivery: a real mail/SMS channel is still needed for production password reset and OTP codes.
-5. Consider fulfillment/shipping fields (tracking number, carrier, delivered state) on admin orders if shipping requires them.
-6. Add admin order search by order number and export if needed.
-7. Add tests for any new order/payment/admin behavior.
+- Shipment entity with dedicated `shipments` table (one-to-one with orders).
+- Shipment model with statuses: `pending`, `processing`, `ready_to_ship`, `shipped`, `in_transit`, `out_for_delivery`, `delivered`, `failed_delivery`.
+- Validated status transitions enforced by backend (e.g., `pending` → `processing` → `ready_to_ship` → `shipped` → `in_transit` → `out_for_delivery` → `delivered`).
+- Shipping fields: carrier, tracking number, tracking reference, shipping fee, estimated delivery, shipped/delivered timestamps.
+- `ShippingService` for business logic: create shipment, update shipment, validate transitions.
+- Admin shipment management: create, view, update shipment via `/admin/orders/{order}/shipment` endpoints.
+- Admin UI (`/admin/orders`) extended with shipping section: create shipment form, update shipment form, display shipping info.
+- Customer UI (`/account` → Orders) extended with shipping display: status, carrier, tracking number, estimated delivery, shipped/delivered dates.
+- Order resource includes shipment relationship when loaded.
+- Shipping fee defaults to order's shipping amount; can be overridden.
+- Order status syncs with shipment status for `shipped` and `delivered`.
+- Authorization: customers can only view their own order's shipment; admins have full access.
+- New test file `Phase4BShippingTest` covering: shipment creation, validation, transitions, authorization, resource inclusion.
+
+### Phase 4B-2 - Order Tracking (proposed)
+
+Phase 4B-1 is complete. Recommended next work:
+
+1. Implement order tracking timeline for customers (Phase 4B-2).
+2. Courier API integration (Phase 4B-3) - build provider abstraction/interface.
+3. Return / Refund / Cancellation Management (Phase 4B-4).
+4. Real courier provider configuration and webhook handling.
+5. Email/SMS notifications for shipping status changes.
 
 ## Frontend Architecture
 
@@ -515,6 +531,9 @@ Require Sanctum auth and admin authorization through product creation policy.
 | GET | `/admin/orders` | `Admin\OrderManagementController@index` |
 | GET | `/admin/orders/{order}` | `Admin\OrderManagementController@show` |
 | PATCH | `/admin/orders/{order}/status` | `Admin\OrderManagementController@updateStatus` |
+| POST | `/admin/orders/{order}/shipment` | `Admin\ShipmentController@store` |
+| GET | `/admin/orders/{order}/shipment` | `Admin\ShipmentController@show` |
+| PUT | `/admin/orders/{order}/shipment` | `Admin\ShipmentController@update` |
 
 ## Database Schema
 
@@ -544,6 +563,7 @@ Migrations currently include:
 - phase 3 coupon rules
 - cart variant uniqueness update
 - phase 4 checkout & payment fields (checkout token, country, provider, billing address, payment confirmation fields)
+- shipments (Phase 4B-1)
 
 Current migration files:
 
@@ -556,7 +576,7 @@ Current migration files:
 2026_09_16_154614_create_product_images_table.php
 2026_09_16_154615_create_sizes_table.php
 2026_09_16_154616_create_colors_table.php
-2026_09_16_154617_create_product_variants_table.php
+2026_09_16_154617_create_product_variants.php
 2026_09_16_154618_create_carts_table.php
 2026_09_16_154619_create_cart_items_table.php
 2026_09_16_154620_create_wishlists_table.php
@@ -572,6 +592,7 @@ Current migration files:
 2026_09_18_130000_add_phase3_coupon_rules.php
 2026_09_18_130100_update_cart_variant_uniqueness.php
 2026_09_18_210000_add_phase4_checkout_payment_fields.php
+2026_09_19_000000_create_shipments_table.php
 ```
 
 ## Backend Domain Notes
@@ -882,6 +903,7 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 47 | Country provider routing | ✅ | BD → sslcommerz, else stripe |
 | 48 | Order confirmation lookup | ✅ | protected by checkout token |
 | 49 | Admin order management | ✅ | list/filters/detail/status updates |
+| 50 | Shipping management | ✅ | shipments, tracking, admin/customer UI |
 
 Legend:
 

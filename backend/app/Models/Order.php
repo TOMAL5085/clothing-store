@@ -86,6 +86,11 @@ class Order extends Model
         return $this->hasOne(Payment::class);
     }
 
+    public function shipment(): HasOne
+    {
+        return $this->hasOne(Shipment::class);
+    }
+
     public function getRouteKeyName(): string
     {
         return 'number';

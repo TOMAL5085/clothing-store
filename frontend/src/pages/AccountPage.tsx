@@ -305,6 +305,19 @@ export default function AccountPage() {
                           );
                         })}
                       </ul>
+                      {order.shipment && (
+                        <div className="mt-4 border-t border-line pt-4 dark:border-line-dark">
+                          <h3 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">Shipping</h3>
+                          <dl className="mt-2 space-y-1 text-sm">
+                            <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Status</dt><dd className="font-semibold capitalize">{order.shipment.status}</dd></div>
+                            {order.shipment.carrier && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Carrier</dt><dd className="font-semibold text-ink dark:text-linen">{order.shipment.carrier}</dd></div>}
+                            {order.shipment.trackingNumber && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Tracking</dt><dd className="font-semibold text-ink dark:text-linen">{order.shipment.trackingNumber}</dd></div>}
+                            {order.shipment.estimatedDeliveryAt && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Est. Delivery</dt><dd className="font-semibold text-ink dark:text-linen">{new Date(order.shipment.estimatedDeliveryAt).toLocaleDateString()}</dd></div>}
+                            {order.shipment.shippedAt && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Shipped</dt><dd className="font-semibold text-ink dark:text-linen">{new Date(order.shipment.shippedAt).toLocaleDateString()}</dd></div>}
+                            {order.shipment.deliveredAt && <div className="flex justify-between"><dt className="text-smoke dark:text-linen-dim">Delivered</dt><dd className="font-semibold text-ink dark:text-linen">{new Date(order.shipment.deliveredAt).toLocaleDateString()}</dd></div>}
+                          </dl>
+                        </div>
+                      )}
                     </div>
                   </details>
                 </li>
