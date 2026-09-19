@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JAAJ — Contemporary Essentials, Quietly Iconic</title>
+    <meta
+      name="description"
+      content="JAAJ designs contemporary essentials in organic cotton, traceable wool and vegetable-tanned leather. Considered wardrobe icons, made in small batches."
+    />
+    <meta name="theme-color" content="#f5f3ee" />
+    <meta property="og:title" content="JAAJ — Contemporary Essentials" />
+    <meta
+      property="og:description"
+      content="Considered wardrobe icons, made in small batches. Organic fabrics, quiet design, everyday luxury."
+    />
+    <meta property="og:type" content="website" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23191613'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='30' fill='%23f5f3ee' text-anchor='middle'%3EJ%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      /* Theme boot: default LIGHT. Dark only when an explicit persisted choice exists. */
+      (function () {
+        try {
+          var raw = window.localStorage.getItem("jaaj-theme");
+          var theme = "light";
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.state && parsed.state.theme === "dark")
+              theme = "dark";
+          }
+          if (theme === "dark") {
+            document.documentElement.classList.add("dark");
+            document.documentElement.style.colorScheme = "dark";
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute("content", "#14120f");
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,279 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* JAAJ design-token theme                                           */
+/* Class-based dark mode: `.dark` on <html>, opt-in only via toggle.   */
+/* Light/off-white is the default experience.                          */
+/* ------------------------------------------------------------------ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  /* Semantic color tokens (resolved from CSS vars per theme) */
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-foreground: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-hover: var(--hover);
+  --color-input: var(--input);
+  --color-destructive: var(--destructive);
+
+  /* Brand constants */
+  --color-navy: #0c1444;
+  --color-crimson: #a71025;
+
+  /* Ink blocks stay dark in BOTH themes (announcement, inverted panels, footer) */
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-fg);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-line: var(--ink-line);
+
+  /* Source 02 Extended Palette Tokens */
+  --color-paper: #f5f3ee;
+  --color-cream: #fbfaf7;
+  --color-fog: #ece9e1;
+  --color-smoke: #6e695f;
+  --color-bronze: #9d7a4e;
+  --color-bronze-deep: #7d5f3a;
+
+  /* Dark Specific Palette Tokens */
+  --color-nox: #14120f;
+  --color-nox2: #1b1815;
+  --color-nox3: #262219;
+  --color-linen: #ece7db;
+  --color-linen-dim: #a49d8e;
+  --color-line-dark: #302b22;
+
+  /* Typography */
+  --font-display: "Fraunces", "Archivo Variable", "Archivo", Georgia, serif;
+  --font-sans: "Manrope", "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-logo: "Fraunces", ui-serif, Georgia, serif;
+
+  /* Editorial tracking presets */
+  --tracking-eyebrow: 0.34em;
+  --tracking-nav: 0.22em;
+  --tracking-caption: 0.14em;
+}
+
+:root {
+  /* LIGHT — default experience. Bright, warm off-white, never harsh pure white. */
+  --bg: #f3f1eb;
+  --surface: #faf9f5;
+  --card: #ffffff;
+  --fg: #171510;
+  --muted: #6f6c63;
+  --faint: #a8a498;
+  --line: #e2dfd6;
+  --input: #ffffff;
+  --hover: #262219;
+  --destructive: #b4232a;
+  --accent: #a71025; /* brand crimson */
+  --accent-strong: #c8132c;
+
+  --ink: #111010;
+  --ink-fg: #f4f2ec;
+  --ink-muted: #9a968c;
+  --ink-line: #26241f;
+}
+
+.dark {
+  /* DARK — opt-in alternative; night-time palette. */
+  --bg: #0c0c0d;
+  --surface: #121214;
+  --card: #17171a;
+  --fg: #f4f3ee;
+  --muted: #98948b;
+  --faint: #635f58;
+  --line: #252528;
+  --input: #17171a;
+  --hover: #e8e6df;
+  --destructive: #e5484d;
+  --accent: #de2337; /* brightened crimson for legibility on near-black */
+  --accent-strong: #f03045;
+
+  --ink: #111010;
+  --ink-fg: #f4f2ec;
+  --ink-muted: #9a968c;
+  --ink-line: #26241f;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* Thin editorial scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--fg) 24%, var(--bg));
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-linen) 26%, transparent);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  /* Horizontal product rails — hide native scrollbar */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+@layer utilities {
+  /* Monochrome art direction for photographic content */
+  .img-bw {
+    filter: grayscale(1) contrast(1.06) brightness(0.99);
+  }
+  .img-bw-hover {
+    filter: grayscale(1) contrast(1.06) brightness(0.99);
+    transition: filter 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .group:hover .img-bw-hover {
+    filter: grayscale(0) contrast(1.02);
+  }
+
+  .text-outline-faint {
+    -webkit-text-stroke: 1px color-mix(in srgb, currentColor 22%, transparent);
+    color: transparent;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Animations & UI Keyframes                                          */
+/* ------------------------------------------------------------------ */
+
+@keyframes jaaj-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes jaaj-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes jaaj-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes jaaj-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes jaaj-light-sweep {
+  0%, 35% {
+    opacity: 0;
+    left: -30%;
+  }
+  50% {
+    opacity: 1;
+  }
+  70%, 100% {
+    opacity: 0;
+    left: 120%;
+  }
+}
+
+.animate-fade-up {
+  animation: jaaj-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-marquee {
+  animation: jaaj-marquee 36s linear infinite;
+}
+
+.hero-light-sweep {
+  position: absolute;
+  inset: -20% auto -20% -30%;
+  width: 22%;
+  transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.22), transparent);
+  animation: jaaj-light-sweep 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--color-fog) 40%,
+    var(--color-cream) 50%,
+    var(--color-fog) 60%
+  );
+  background-size: 200% 100%;
+  animation: jaaj-shimmer 1.6s linear infinite;
+}
+.dark .skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--color-nox2) 40%,
+    var(--color-nox3) 50%,
+    var(--color-nox2) 60%
+  );
+  background-size: 200% 100%;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
