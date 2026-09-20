@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateShipmentRequest;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\ShipmentResource;
 use App\Models\Order;
+use App\Services\Couriers\CourierGateway;
 use App\Services\ShippingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -17,6 +18,7 @@ class ShipmentController extends Controller
 {
     public function __construct(
         private readonly ShippingService $shipping,
+        private readonly CourierGateway $courier,
     ) {
     }
 
@@ -64,5 +66,21 @@ class ShipmentController extends Controller
         }
 
         return ShipmentResource::make($shipment->refresh());
+    }
+
+    public function status(Order $order): \Illuminate\Http\JsonResponse
+    {
+        Gate::authorize('viewAny', Order::class);
+
+        $shipment = $order->shipment;
+        if (! $shipment) {
+            return response()->json(['message' => 'No shipment found for this order.'], 404);
+        }
+
+        $status = $this->courier->getStatus($shipment);
+
+        return response()->json([
+            'status' => $status,
+        ]);
     }
 }

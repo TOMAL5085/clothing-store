@@ -455,6 +455,24 @@ Implemented:
 
 ### Phase 4B-3C - Courier Tracking Synchronization (proposed)
 
+Phase 4B-3C-1 is complete: Added admin-only endpoint `GET /api/v1/admin/orders/{order}/shipment/status` that fetches the latest courier status for an existing shipment using the existing `CourierGateway->getStatus(Shipment)` method. Requires authenticated admin access via Sanctum token. Returns JSON `{ "status": "..." }`.
+
+Reuses existing `CourierService` and `CourierGateway`. Does not modify internal Shipment status, does not create ShipmentEvent records, and does not integrate a real courier.
+
+**Endpoint**: `GET /api/v1/admin/orders/{order}/shipment/status`
+- Requires admin Sanctum authentication
+- Returns 404 if no shipment exists for the order
+- Returns 200 with `{"status": "shipment_status"}` on success
+- Returns 403 for non-admin customers
+
+**Tests** (`Phase4B3CourierStatusTest`):
+- Admin can fetch courier status
+- Unauthenticated access is rejected (401)
+- Non-admin/customer access is rejected (403)
+- Missing shipment/order returns 404
+- Endpoint returns the courier status
+- Calling the endpoint does not modify shipment status
+
 Phase 4B-3B is complete. Recommended next work:
 
 1. Courier tracking synchronization with ShipmentEvent.
@@ -1052,6 +1070,7 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 51 | Order tracking | ✅ | shipment events, timeline, customer/admin UI |
 | 52 | Courier API foundation | ✅ | interface, mock provider, config, provider resolution |
 | 53 | Courier shipment creation | ✅ | admin creates shipment via courier gateway, mock provider integration |
+| 54 | Courier status fetch (4B-3C-1) | ✅ | admin endpoint GET /api/v1/admin/orders/{order}/shipment/status returns courier status via CourierGateway->getStatus() |
 
 Legend:
 

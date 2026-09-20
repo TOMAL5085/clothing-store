@@ -83,6 +83,7 @@ Route::prefix('v1')->group(function () {
             Route::post('orders/{order}/shipment', [ShipmentController::class, 'store']);
             Route::get('orders/{order}/shipment', [ShipmentController::class, 'show']);
             Route::put('orders/{order}/shipment', [ShipmentController::class, 'update']);
+            Route::get('orders/{order}/shipment/status', [ShipmentController::class, 'status']);
         });
     });
 });
