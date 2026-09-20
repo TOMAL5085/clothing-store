@@ -457,20 +457,24 @@ Implemented:
 
 Phase 4B-3C-1 is complete: Added admin-only endpoint `GET /api/v1/admin/orders/{order}/shipment/status` that fetches the latest courier status for an existing shipment using the existing `CourierGateway->getStatus(Shipment)` method. Requires authenticated admin access via Sanctum token. Returns JSON `{ "status": "..." }`.
 
-Reuses existing `CourierService` and `CourierGateway`. Does not modify internal Shipment status, does not create ShipmentEvent records, and does not integrate a real courier.
+Phase 4B-3C-2 is complete: Added status mapping layer. The `CourierGateway` interface now includes `mapExternalStatusToInternal(string $rawStatus): string` method. This maps external courier provider statuses to this project's internal shipment statuses (`pending`, `processing`, `ready_to_ship`, `shipped`, `in_transit`, `out_for_delivery`, `delivered`, `failed_delivery`). The mapping is safe - for unknown statuses, it returns the raw status unchanged without modifying the Shipment model or creating ShipmentEvent records.
 
-**Endpoint**: `GET /api/v1/admin/orders/{order}/shipment/status`
+**4B-3C-1 Endpoint**: `GET /api/v1/admin/orders/{order}/shipment/status`
 - Requires admin Sanctum authentication
 - Returns 404 if no shipment exists for the order
-- Returns 200 with `{"status": "shipment_status"}` on success
-- Returns 403 for non-admin customers
+- Returns 200 with `{"status": "mapped_internal_status"}` on success
+
+**4B-3C-2 Mapping**: `CourierGateway->mapExternalStatusToInternal(string $rawStatus): string`
+- MockCourierGateway: identity mapping (statuses are already internal)
+- Real providers: implement proper mapping from external statuses to internal statuses
+- Unknown statuses: returned as-is without modifying shipment state
 
 **Tests** (`Phase4B3CourierStatusTest`):
 - Admin can fetch courier status
 - Unauthenticated access is rejected (401)
 - Non-admin/customer access is rejected (403)
 - Missing shipment/order returns 404
-- Endpoint returns the courier status
+- Endpoint returns the mapped courier status
 - Calling the endpoint does not modify shipment status
 
 Phase 4B-3B is complete. Recommended next work:
@@ -1071,6 +1075,7 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 52 | Courier API foundation | ✅ | interface, mock provider, config, provider resolution |
 | 53 | Courier shipment creation | ✅ | admin creates shipment via courier gateway, mock provider integration |
 | 54 | Courier status fetch (4B-3C-1) | ✅ | admin endpoint GET /api/v1/admin/orders/{order}/shipment/status returns courier status via CourierGateway->getStatus() |
+| 55 | Courier status mapping (4B-3C-2) | ✅ | maps external courier statuses to internal shipment statuses via CourierGateway->mapExternalStatusToInternal(); unknown statuses handled safely without modifying shipment |
 
 Legend:
 

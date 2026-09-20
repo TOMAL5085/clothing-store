@@ -77,10 +77,11 @@ class ShipmentController extends Controller
             return response()->json(['message' => 'No shipment found for this order.'], 404);
         }
 
-        $status = $this->courier->getStatus($shipment);
+        $rawStatus = $this->courier->getStatus($shipment);
+        $mappedStatus = $this->courier->mapExternalStatusToInternal($rawStatus);
 
         return response()->json([
-            'status' => $status,
+            'status' => $mappedStatus,
         ]);
     }
 }

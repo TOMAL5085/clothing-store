@@ -45,7 +45,53 @@ class MockCourierGateway implements CourierGateway
 
     public function getStatus(Shipment $shipment): string
     {
-        return $shipment->status;
+        return $this->mapExternalStatusToInternal($shipment->status);
+    }
+
+    /**
+     * Map an external courier status to an internal shipment status.
+     *
+     * The mock gateway's status is already an internal status, so we return it as-is.
+     * Real providers should implement proper mapping here.
+     *
+     * @param  string $rawStatus The raw status from the courier provider
+     * @return string The mapped internal shipment status
+     */
+    public function mapExternalStatusToInternal(string $rawStatus): string
+    {
+        // The mock returns internal statuses directly, so identity mapping
+        // Real providers would map external statuses like "out_for_delivery" → "out_for_delivery", etc.
+        $internalStatuses = [
+            'pending',
+            'processing',
+            'ready_to_ship',
+            'shipped',
+            'in_transit',
+            'out_for_delivery',
+            'delivered',
+            'failed_delivery',
+        ];
+
+        // Normalize: replace underscores with spaces for comparison, then title-case
+        // But for the mock, just check if it's a known internal status
+        foreach ($internalStatuses as $status) {
+            if ($rawStatus === $status) {
+                return $rawStatus;
+            }
+            // Handle common variations: "out for delivery" → "out_for_delivery"
+            $normalized = str_replace('_', ' ', $rawStatus);
+            if (trim($normalized) === $status) {
+                return $status;
+            }
+            // Handle title-case variations
+            if (ucwords(str_replace('_', ' ', $rawStatus)) === ucwords(str_replace('_', ' ', $status))) {
+                return $status;
+            }
+        }
+
+        // Unknown status: return as-is to avoid changing the shipment
+        // The controller will handle this gracefully
+        return $rawStatus;
     }
 
     public function cancelShipment(Shipment $shipment): bool

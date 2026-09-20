@@ -29,6 +29,14 @@ interface CourierGateway
     public function getStatus(Shipment $shipment): string;
 
     /**
+     * Map an external courier status to an internal shipment status.
+     *
+     * @param  string $rawStatus The raw status from the courier provider
+     * @return string The mapped internal shipment status
+     */
+    public function mapExternalStatusToInternal(string $rawStatus): string;
+
+    /**
      * Cancel a shipment if supported by the courier.
      */
     public function cancelShipment(Shipment $shipment): bool;
