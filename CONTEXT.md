@@ -166,12 +166,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":59,"passed":59,"assertions":276,"duration_ms":20030}
+{"tool":"phpunit","result":"passed","tests":69,"passed":69,"assertions":305,"duration_ms":16471}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), and Phase 4B-2 (`Phase4BTrackingTest`).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), and Phase 4B-3A (`Phase4B3CourierFoundationTest`).
 
 ## Git State
 
@@ -186,27 +186,18 @@ Result:
 ```text
 ## main...origin/main
  M CONTEXT.md
- M backend/app/Http/Controllers/Api/V1/Admin/OrderManagementController.php
- M backend/app/Http/Controllers/Api/V1/Admin/ShipmentController.php
- M backend/app/Http/Controllers/Api/V1/OrderController.php
- M backend/app/Http/Controllers/Api/V1/OrderTrackingController.php
- M backend/app/Http/Resources/OrderResource.php
- M backend/app/Models/Order.php
  M backend/app/Models/Shipment.php
- M backend/app/Services/ShippingService.php
- M backend/database/migrations/2026_09_19_000001_create_shipment_events_table.php
- M backend/routes/api.php
- M frontend/src/pages/AccountPage.tsx
- M frontend/src/pages/admin/AdminOrdersPage.tsx
- M frontend/src/store/orderStore.ts
-A backend/app/Http/Controllers/Api/V1/OrderTrackingController.php
-A backend/app/Http/Resources/ShipmentEventResource.php
-A backend/app/Models/ShipmentEvent.php
-A backend/database/migrations/2026_09_19_000001_create_shipment_events_table.php
-A backend/tests/Feature/Phase4BTrackingTest.php
+ M backend/app/Providers/AppServiceProvider.php
+ M backend/config/couriers.php
+A backend/app/Services/Couriers/CourierGateway.php
+A backend/app/Services/Couriers/CourierService.php
+A backend/app/Services/Couriers/MockCourierGateway.php
+A backend/config/couriers.php
+A backend/database/factories/ShipmentFactory.php
+A backend/tests/Feature/Phase4B3CourierFoundationTest.php
 ```
 
-Status: ✅ Git repository detected at `C:\Users\User\Desktop\clothing-store`. Current branch: `main`. Last commit: `389dd61` "Complete Phase 4B-1 shipping management".
+Status: ✅ Git repository detected at `C:\Users\User\Desktop\clothing-store`. Current branch: `main`. Last commit: `08eff6e` "Complete Phase 4B-2 order tracking".
 
 ## Completed Phases
 
@@ -347,11 +338,72 @@ Implemented:
 - Authorization: customers can only view their own order's tracking; admins have full access.
 - New test file `Phase4BTrackingTest` covering: event creation on creation/status change, chronological order, customer/admin authorization, tracking endpoint, duplicate event prevention, event timestamps.
 
-### Phase 4B-3 - Courier API Integration (proposed)
+### Phase 4B-3A - Courier API Integration Foundation
 
-Phase 4B-2 is complete. Recommended next work:
+Status: ✅ complete.
 
-1. Courier API integration (Phase 4B-3) - build provider abstraction/interface.
+Implemented:
+
+- **CourierGateway interface** (`app/Services/Couriers/CourierGateway.php`): Clean contract defining the operations courier providers must implement:
+  - `name()` - provider identifier
+  - `createShipment(Order $order, Shipment $shipment)` - creates shipment with courier, returns tracking info
+  - `getTracking(Shipment $shipment)` - retrieves tracking info and events
+  - `getStatus(Shipment $shipment)` - retrieves current status
+  - `cancelShipment(Shipment $shipment)` - cancels shipment if supported
+
+- **MockCourierGateway** (`app/Services/Couriers/MockCourierGateway.php`): Deterministic mock provider for development and testing:
+  - Generates tracking numbers (TRK prefix) and carrier references (MOCK prefix)
+  - Returns estimated delivery dates (3-7 days)
+  - Returns current shipment status
+  - Returns tracking events from local ShipmentEvent records
+  - No network calls, fully deterministic
+
+- **CourierService** (`app/Services/Couriers/CourierService.php`): Provider resolution and management:
+  - Resolves default provider from config
+  - Can resolve specific driver by name
+  - Uses Laravel service container for instantiation
+
+- **Configuration** (`config/couriers.php`):
+  - `COURIER_DRIVER` environment variable (default: `mock`)
+  - Provider definitions with class references
+  - Extensible for future real providers
+
+- **Service Registration** (`AppServiceProvider`):
+  - Binds `CourierGateway` interface to configured provider
+  - Registers `CourierService` as singleton
+
+- **Tests** (`Phase4B3CourierFoundationTest`): 10 tests covering:
+  - Mock provider resolution
+  - Courier service gateway resolution
+  - Deterministic shipment creation
+  - Tracking data retrieval
+  - Status retrieval
+  - Driver resolution
+  - Invalid driver handling
+  - Cancel shipment
+  - Configuration validation
+  - Regression protection
+
+- **Database**: No changes required. Existing Shipment and ShipmentEvent architecture is sufficient for the abstraction.
+
+- **Files Changed**:
+  - `backend/app/Services/Couriers/CourierGateway.php` (new)
+  - `backend/app/Services/Couriers/MockCourierGateway.php` (new)
+  - `backend/app/Services/Couriers/CourierService.php` (new)
+  - `backend/config/couriers.php` (new)
+  - `backend/app/Providers/AppServiceProvider.php` (modified)
+  - `backend/database/factories/ShipmentFactory.php` (new)
+  - `backend/tests/Feature/Phase4B3CourierFoundationTest.php` (new)
+  - `backend/app/Models/Shipment.php` (modified - added HasFactory trait)
+
+### Phase 4B-3B - Shipment Creation Integration (proposed)
+
+Phase 4B-3A is complete. Recommended next work:
+
+1. Integrate courier shipment creation with existing ShippingService.
+2. Courier tracking synchronization with ShipmentEvent.
+3. Courier webhook architecture.
+4. Admin courier UI.
 2. Return / Refund / Cancellation Management (Phase 4B-4).
 3. Real courier provider configuration and webhook handling.
 4. Email/SMS notifications for shipping status changes.
@@ -942,6 +994,7 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 49 | Admin order management | ✅ | list/filters/detail/status updates |
 | 50 | Shipping management | ✅ | shipments, tracking, admin/customer UI |
 | 51 | Order tracking | ✅ | shipment events, timeline, customer/admin UI |
+| 52 | Courier API foundation | ✅ | interface, mock provider, config, provider resolution |
 
 Legend:
 
