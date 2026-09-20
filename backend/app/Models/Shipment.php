@@ -40,6 +40,7 @@ class Shipment extends Model
         'carrier',
         'tracking_number',
         'tracking_reference',
+        'carrier_reference',
         'shipping_fee',
         'estimated_delivery_at',
         'shipped_at',

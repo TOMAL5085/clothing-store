@@ -12,7 +12,7 @@ interface CourierGateway
     /**
      * Create a shipment with the courier.
      *
-     * @return array{tracking_number:string, carrier_reference:?string, status:string, estimated_delivery_at:?string}
+     * @return array{tracking_number:string, carrier_reference:?string, status:string, estimated_delivery_at:?string, carrier:?string}
      */
     public function createShipment(Order $order, Shipment $shipment): array;
 

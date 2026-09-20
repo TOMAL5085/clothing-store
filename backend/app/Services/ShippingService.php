@@ -5,10 +5,16 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
+use App\Services\Couriers\CourierService;
 use Illuminate\Validation\ValidationException;
 
 class ShippingService
 {
+    public function __construct(
+        private readonly CourierService $courierService,
+    ) {
+    }
+
     public function createShipment(Order $order, array $data): Shipment
     {
         if ($order->shipment()->exists()) {
@@ -17,19 +23,43 @@ class ShippingService
             ]);
         }
 
+        // Determine carrier from request data or fallback to courier gateway name
+        $requestedCarrier = $data['carrier'] ?? null;
+        $requestedTrackingNumber = $data['tracking_number'] ?? null;
+        $requestedTrackingReference = $data['tracking_reference'] ?? null;
+
+        // Create internal shipment record first
         $shipment = $order->shipment()->create([
             'status' => 'pending',
-            'carrier' => $data['carrier'] ?? null,
-            'tracking_number' => $data['tracking_number'] ?? null,
-            'tracking_reference' => $data['tracking_reference'] ?? null,
+            'carrier' => $requestedCarrier,
+            'tracking_number' => $requestedTrackingNumber,
+            'tracking_reference' => $requestedTrackingReference,
             'shipping_fee' => $data['shipping_fee'] ?? $order->shipping,
             'estimated_delivery_at' => $data['estimated_delivery_at'] ?? null,
         ]);
 
-        // Create initial tracking event
+        // Create initial tracking event for internal creation
         $this->createEvent($shipment, 'pending', null, 'Shipment created.');
 
-        return $shipment;
+        // Create courier shipment via configured provider
+        $courierResult = $this->courierService->gateway()->createShipment($order, $shipment);
+
+        // Update internal shipment with courier response, preserving admin-provided values
+        $shipment->update([
+            'carrier' => $requestedCarrier ?? $courierResult['carrier'] ?? $this->courierService->gateway()->name(),
+            'tracking_number' => $requestedTrackingNumber ?? $courierResult['tracking_number'] ?? $shipment->tracking_number,
+            'tracking_reference' => $requestedTrackingReference ?? $courierResult['carrier_reference'] ?? $shipment->tracking_reference,
+            'carrier_reference' => $courierResult['carrier_reference'] ?? $shipment->carrier_reference,
+            'estimated_delivery_at' => $courierResult['estimated_delivery_at'] ?? $shipment->estimated_delivery_at,
+            'status' => $courierResult['status'] ?? $shipment->status,
+        ]);
+
+        // Create event for courier shipment creation if status changed
+        if (($courierResult['status'] ?? 'pending') !== 'pending') {
+            $this->createEvent($shipment, $courierResult['status'], null, 'Courier shipment created.');
+        }
+
+        return $shipment->refresh();
     }
 
     public function updateShipment(Shipment $shipment, array $data): Shipment

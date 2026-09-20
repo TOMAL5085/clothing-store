@@ -21,6 +21,7 @@ class MockCourierGateway implements CourierGateway
             'carrier_reference' => 'MOCK-'.Str::upper(Str::random(8)),
             'status' => 'pending',
             'estimated_delivery_at' => Carbon::now()->addDays(rand(3, 7))->toISOString(),
+            'carrier' => 'Mock Courier',
         ];
     }
 

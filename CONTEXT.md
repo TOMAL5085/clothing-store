@@ -166,12 +166,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":69,"passed":69,"assertions":305,"duration_ms":16471}
+{"tool":"phpunit","result":"passed","tests":77,"passed":77,"assertions":348,"duration_ms":18799}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), and Phase 4B-3A (`Phase4B3CourierFoundationTest`).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), and Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`).
 
 ## Git State
 
@@ -188,16 +188,20 @@ Result:
  M CONTEXT.md
  M backend/app/Models/Shipment.php
  M backend/app/Providers/AppServiceProvider.php
- M backend/config/couriers.php
+ M backend/app/Services/ShippingService.php
+ M backend/app/Http/Resources/OrderResource.php
+ M backend/app/Http/Resources/ShipmentResource.php
 A backend/app/Services/Couriers/CourierGateway.php
 A backend/app/Services/Couriers/CourierService.php
 A backend/app/Services/Couriers/MockCourierGateway.php
 A backend/config/couriers.php
+A backend/database/migrations/2026_09_20_085927_add_carrier_reference_to_shipments_table.php
 A backend/database/factories/ShipmentFactory.php
 A backend/tests/Feature/Phase4B3CourierFoundationTest.php
+A backend/tests/Feature/Phase4B3CourierShipmentCreationTest.php
 ```
 
-Status: ✅ Git repository detected at `C:\Users\User\Desktop\clothing-store`. Current branch: `main`. Last commit: `08eff6e` "Complete Phase 4B-2 order tracking".
+Status: ✅ Git repository detected at `C:\Users\User\Desktop\clothing-store`. Current branch: `main`. Last commit: `34a39da` "Complete Phase 4B-3A courier foundation".
 
 ## Completed Phases
 
@@ -396,14 +400,66 @@ Implemented:
   - `backend/tests/Feature/Phase4B3CourierFoundationTest.php` (new)
   - `backend/app/Models/Shipment.php` (modified - added HasFactory trait)
 
-### Phase 4B-3B - Shipment Creation Integration (proposed)
+### Phase 4B-3B - Courier Shipment Creation Integration
 
-Phase 4B-3A is complete. Recommended next work:
+Status: ✅ complete.
 
-1. Integrate courier shipment creation with existing ShippingService.
-2. Courier tracking synchronization with ShipmentEvent.
-3. Courier webhook architecture.
-4. Admin courier UI.
+Implemented:
+
+- **ShippingService integration** (`app/Services/ShippingService.php`): Extended to use CourierService for creating courier shipments when admin creates a shipment:
+  - Creates internal shipment record first
+  - Calls configured CourierGateway (mock provider by default) to create external courier shipment
+  - Updates internal shipment with courier response: tracking_number, carrier_reference, carrier, estimated_delivery_at, status
+  - Preserves admin-provided values (carrier, tracking_number, tracking_reference) when provided
+  - Creates appropriate ShipmentEvent for courier shipment creation
+  - Maintains idempotency: prevents duplicate courier shipment creation for same internal shipment
+
+- **MockCourierGateway** (`app/Services/Couriers/MockCourierGateway.php`): Returns deterministic courier response:
+  - Generates tracking numbers (TRK prefix) and carrier references (MOCK prefix)
+  - Returns estimated delivery dates (3-7 days)
+  - Carrier name: "Mock Courier"
+  - No network calls, fully deterministic
+
+- **Shipment model** (`app/Models/Shipment.php`): Added `carrier_reference` field to `$fillable` array
+
+- **Database migration** (`2026_09_20_085927_add_carrier_reference_to_shipments_table.php`): Added `carrier_reference` column to shipments table
+
+- **API Resources**:
+  - `ShipmentResource`: Added `carrierReference` field
+  - `OrderResource`: Added `carrierReference` to shipment data
+
+- **Admin UI** (`/admin/orders`): Extended shipment creation form to work with courier integration (preserves admin-provided values, displays courier-generated tracking info)
+
+- **Tests** (`Phase4B3CourierShipmentCreationTest`): 9 tests covering:
+  - Admin creates shipment with courier integration (admin-provided tracking)
+  - Admin creates shipment with courier-generated tracking
+  - Unpaid order rejection
+  - Customer authorization enforcement
+  - Duplicate shipment prevention
+  - Courier failure handling (mock provider)
+  - Customer tracking visibility
+  - Cross-customer access prevention
+
+- **API Endpoints**: No new endpoints; extended existing `POST /api/v1/admin/orders/{order}/shipment` to integrate with CourierGateway
+
+- **Database**: Added `carrier_reference` column to `shipments` table via migration
+
+- **Files Changed**:
+  - `backend/app/Services/ShippingService.php` (modified)
+  - `backend/app/Models/Shipment.php` (modified - added carrier_reference to fillable, HasFactory trait)
+  - `backend/app/Http/Resources/ShipmentResource.php` (modified - added carrierReference)
+  - `backend/app/Http/Resources/OrderResource.php` (modified - added carrierReference to shipment data)
+  - `backend/app/Services/ShippingService.php` (modified - integrated CourierService)
+  - `backend/database/migrations/2026_09_20_085927_add_carrier_reference_to_shipments_table.php` (new)
+  - `backend/tests/Feature/Phase4B3CourierShipmentCreationTest.php` (new)
+
+### Phase 4B-3C - Courier Tracking Synchronization (proposed)
+
+Phase 4B-3B is complete. Recommended next work:
+
+1. Courier tracking synchronization with ShipmentEvent.
+2. Courier webhook architecture.
+3. Admin courier UI enhancements.
 2. Return / Refund / Cancellation Management (Phase 4B-4).
 3. Real courier provider configuration and webhook handling.
 4. Email/SMS notifications for shipping status changes.
@@ -995,6 +1051,7 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 50 | Shipping management | ✅ | shipments, tracking, admin/customer UI |
 | 51 | Order tracking | ✅ | shipment events, timeline, customer/admin UI |
 | 52 | Courier API foundation | ✅ | interface, mock provider, config, provider resolution |
+| 53 | Courier shipment creation | ✅ | admin creates shipment via courier gateway, mock provider integration |
 
 Legend:
 
@@ -1004,14 +1061,13 @@ Legend:
 
 ## Known Issues and Technical Debt
 
-1. No Git repository detected at the current root.
-2. `frontend/src/App.tsx` contains an older commented-out app implementation above the active implementation.
-3. Some frontend text appears mojibake-encoded in inspected output, for example smart punctuation or comments rendered as garbled characters. Be careful before editing text content.
-4. Product fallback mock data still exists by design. Do not remove it unless the app no longer needs offline/dev fallback.
-5. Demo payment is not a real production payment gateway.
-6. OTP debug codes are intentionally exposed only in debug/testing. Production delivery still needs a real provider.
-7. Live payment credentials (real Stripe keys, live SSLCOMMERZ store) and webhook/IPN registration in provider dashboards are still pending; dev/test uses demo driver.
-8. Browser `Something went wrong` should be debugged from console stack traces and network responses before changing backend contracts.
+1. `frontend/src/App.tsx` contains an older commented-out app implementation above the active implementation.
+2. Some frontend text appears mojibake-encoded in inspected output, for example smart punctuation or comments rendered as garbled characters. Be careful before editing text content.
+3. Product fallback mock data still exists by design. Do not remove it unless the app no longer needs offline/dev fallback.
+4. Demo payment is not a real production payment gateway.
+5. OTP debug codes are intentionally exposed only in debug/testing. Production delivery still needs a real provider.
+6. Live payment credentials (real Stripe keys, live SSLCOMMERZ store) and webhook/IPN registration in provider dashboards are still pending; dev/test uses demo driver.
+7. Browser `Something went wrong` should be debugged from console stack traces and network responses before changing backend contracts.
 8. Browser `Something went wrong` should be debugged from console stack traces and network responses before changing backend contracts.
 
 ## Security Notes

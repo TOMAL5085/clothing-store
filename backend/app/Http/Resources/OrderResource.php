@@ -71,6 +71,7 @@ class OrderResource extends JsonResource
                 'carrier' => $this->shipment->carrier,
                 'trackingNumber' => $this->shipment->tracking_number,
                 'trackingReference' => $this->shipment->tracking_reference,
+                'carrierReference' => $this->shipment->carrier_reference,
                 'shippingFee' => $this->shipment->shipping_fee ? (float) $this->shipment->shipping_fee : null,
                 'estimatedDeliveryAt' => $this->shipment->estimated_delivery_at?->toISOString(),
                 'shippedAt' => $this->shipment->shipped_at?->toISOString(),
