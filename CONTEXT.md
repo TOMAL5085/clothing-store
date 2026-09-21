@@ -166,12 +166,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":77,"passed":77,"assertions":348,"duration_ms":18799}
+{"tool":"phpunit","result":"passed","tests":96,"passed":96,"assertions":412,"duration_ms":18799}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), and Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), and Phase 4B-4 (`Phase4ResolutionTest`).
 
 ## Git State
 
@@ -493,9 +493,88 @@ Phase 4B-3B is complete. Recommended next work:
 1. Courier tracking synchronization with ShipmentEvent.
 2. Courier webhook architecture.
 3. Admin courier UI enhancements.
-2. Return / Refund / Cancellation Management (Phase 4B-4).
-3. Real courier provider configuration and webhook handling.
-4. Email/SMS notifications for shipping status changes.
+4. Return / Refund / Cancellation Management (Phase 4B-4).
+5. Real courier provider configuration and webhook handling.
+6. Email/SMS notifications for shipping status changes.
+
+### Phase 4B-4 - Cancellation, Return & Refund Management
+
+**Status: ✅ Complete**
+
+Implemented complete cancellation, return, and refund lifecycle with proper authorization, inventory handling, and provider-aware refund processing.
+
+#### Database Migrations
+- `2026_09_21_000000_create_phase4_resolution_tables.php`: Created four new tables:
+  - `cancellation_requests` - One per order, tracks cancellation request lifecycle
+  - `return_requests` - One per order, tracks return request lifecycle
+  - `return_items` - Items within a return request with quantity and resolution status
+  - `refunds` - Tracks refund state separately from orders/returns/cancellations
+
+#### Models
+- `CancellationRequest`: statuses (pending, approved, rejected, executed), links to Order, User, Refund
+- `ReturnRequest`: statuses (pending, approved, rejected, received, resolved), links to Order, User, items, Refund
+- `ReturnItem`: resolution_statuses (requested, approved, rejected, received, refund_pending, refunded), links to ReturnRequest and OrderItem
+- `Refund`: statuses (pending, processing, succeeded, failed, canceled), links to Order, Payment, ReturnRequest, CancellationRequest; tracks amount, currency, provider, provider_reference
+
+#### Service: OrderResolutionService
+- `createCancellationRequest(Order, User, reason)` - Creates cancellation request with eligibility checks
+- `reviewCancellation(CancellationRequest, admin, decision, adminReason)` - Admin approves/rejects; on approval executes cancellation
+- `createReturnRequest(Order, User, items[], reason)` - Creates return request with item validation
+- `reviewReturn(ReturnRequest, admin, decision, adminReason)` - Admin approves/rejects return
+- `markReturnReceived(ReturnRequest, admin, adminReason)` - Marks return as received, creates refund
+- `updateRefund(Refund, admin, status, providerReference, failureReason)` - Admin updates refund status
+- `executeCancellation()` - Handles inventory restoration, payment cancellation/refund, courier shipment cancellation
+- `remainingRefundableAmount()` - Prevents over-refund by tracking total refunded amount per order
+
+#### Business Rules
+- **Cancellation**: Allowed for orders in `pending`, `confirmed`, `processing` status. Blocked if shipment status is `shipped`, `in_transit`, `out_for_delivery`, or `delivered`.
+- **Returns**: Only for `delivered` orders with `paid` payment status. Items must belong to order, quantities validated against purchased quantities.
+- **Refunds**: Created only after cancellation approval (for paid orders) or return receipt. Amount calculated server-side. Provider tracked for Stripe/SSLCOMMERZ integration.
+- **Inventory**: Restored on cancellation if previously decremented. Returns do not automatically restore inventory (requires inspection workflow).
+- **Courier**: On order cancellation, calls `CourierGateway->cancelShipment()` if shipment exists and is not delivered.
+
+#### API Endpoints
+
+**Customer Routes (auth:sanctum):**
+- `POST /api/v1/orders/{order}/cancellation` - Create cancellation request
+- `GET /api/v1/orders/{order}/cancellation` - View own cancellation request
+- `GET /api/v1/orders/{order}/returns` - List return requests for order
+- `POST /api/v1/orders/{order}/returns` - Create return request
+- `GET /api/v1/orders/{order}/returns/{returnRequest}` - View specific return request
+
+**Admin Routes (auth:sanctum + admin):**
+- `GET /api/v1/admin/cancellations` - List cancellation requests (filterable by status)
+- `PATCH /api/v1/admin/cancellations/{cancellationRequest}` - Approve/reject cancellation
+- `GET /api/v1/admin/returns` - List return requests (filterable by status)
+- `PATCH /api/v1/admin/returns/{returnRequest}` - Approve/reject return
+- `POST /api/v1/admin/returns/{returnRequest}/received` - Mark return as received
+- `GET /api/v1/admin/refunds` - List refunds (filterable by status)
+- `PATCH /api/v1/admin/refunds/{refund}` - Update refund status (processing/succeeded/failed/canceled)
+
+#### Authorization
+- Customers can only access their own orders' cancellation/return requests
+- Admin endpoints require admin role (via `can:create,Product` policy)
+- OrderPolicy enforces ownership on customer endpoints
+
+#### Tests
+- `Phase4ResolutionTest` (5 tests, 39 assertions):
+  - Customer can request cancellation, admin approval cancels order with pending refund
+  - Cancellation blocked after shipment leaves warehouse; cross-customer forbidden
+  - Delivered order return request → admin review → received → refund lifecycle
+  - Return requires delivered owned order and valid order items
+  - Customer cannot access admin resolution endpoints
+
+#### Frontend Integration
+- Account page: "Request Cancellation" button for eligible orders (pending/confirmed/processing)
+- Account page: "Return" button for delivered order items
+- Admin orders page: Cancellation review (Approve/Reject), Return review (Approve/Reject/Mark Received), Refund status management
+- Admin orders page: "Sync Courier Status" button to trigger courier synchronization
+
+#### Configuration
+- `config/orders.php`: Configurable allowed order statuses for cancellation and returns
+  - `cancellation.allowed_order_statuses`: ['pending', 'confirmed', 'processing']
+  - `cancellation.blocked_shipment_statuses`: ['shipped', 'in_transit', 'out_for_delivery', 'delivered']
+  - `returns.allowed_order_statuses`: ['delivered']
 
 ## Frontend Architecture
 
@@ -1088,6 +1167,10 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 54 | Courier status fetch (4B-3C-1) | ✅ | admin endpoint GET /api/v1/admin/orders/{order}/shipment/status returns courier status via CourierGateway->getStatus() |
 | 55 | Courier status mapping (4B-3C-2) | ✅ | maps external courier statuses to internal shipment statuses via CourierGateway->mapExternalStatusToInternal(); unknown statuses handled safely without modifying shipment |
 | 56 | Shipment event sync (4B-3C-3A) | ✅ | ShippingService::syncShipmentStatus() syncs Shipment with courier status, reuses transition validation and event creation; idempotent - no duplicate events on repeat calls; 8 dedicated tests verify behavior |
+| 57 | Cancellation workflow | ✅ | Customer requests, admin reviews/approves/rejects, execution with inventory restoration and refund creation; duplicate prevention; authorization enforced |
+| 58 | Return workflow | ✅ | Customer requests returns for delivered items, admin approves/rejects/marks received, refund creation; quantity validation; duplicate prevention |
+| 59 | Refund management | ✅ | Admin manages refunds (processing/succeeded/failed/canceled); provider-aware; idempotent; prevents over-refund; tracks refund state separately |
+| 60 | Courier cancellation on order cancel | ✅ | When order is cancelled, existing courier shipment is cancelled via CourierGateway->cancelShipment() |
 
 Legend:
 

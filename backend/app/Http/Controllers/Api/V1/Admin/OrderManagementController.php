@@ -23,7 +23,17 @@ class OrderManagementController extends Controller
         ]);
 
         $orders = Order::query()
-            ->with(['items', 'shippingAddress', 'billingAddress', 'payment', 'user'])
+            ->with([
+                'items',
+                'shippingAddress',
+                'billingAddress',
+                'payment',
+                'user',
+                'cancellationRequest.refund',
+                'returnRequests.items.orderItem',
+                'returnRequests.refund',
+                'refunds',
+            ])
             ->when($validated['q'] ?? null, function ($query, string $search) {
                 $query->where(function ($query) use ($search) {
                     $query->where('number', 'ilike', "%{$search}%")
@@ -43,7 +53,18 @@ class OrderManagementController extends Controller
     {
         Gate::authorize('view', $order);
 
-        return OrderResource::make($order->load(['items', 'shippingAddress', 'billingAddress', 'payment', 'shipment.events', 'user']));
+        return OrderResource::make($order->load([
+            'items',
+            'shippingAddress',
+            'billingAddress',
+            'payment',
+            'shipment.events',
+            'user',
+            'cancellationRequest.refund',
+            'returnRequests.items.orderItem',
+            'returnRequests.refund',
+            'refunds',
+        ]));
     }
 
     public function updateStatus(UpdateOrderStatusRequest $request, Order $order): OrderResource
@@ -52,6 +73,16 @@ class OrderManagementController extends Controller
 
         $order->update(['status' => $request->validated('status')]);
 
-        return OrderResource::make($order->fresh(['items', 'shippingAddress', 'billingAddress', 'payment', 'user']));
+        return OrderResource::make($order->fresh([
+            'items',
+            'shippingAddress',
+            'billingAddress',
+            'payment',
+            'user',
+            'cancellationRequest.refund',
+            'returnRequests.items.orderItem',
+            'returnRequests.refund',
+            'refunds',
+        ]));
     }
 }

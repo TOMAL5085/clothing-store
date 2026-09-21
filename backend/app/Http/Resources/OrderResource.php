@@ -80,8 +80,12 @@ class OrderResource extends JsonResource
                     ? ShipmentEventResource::collection($this->shipment->events) 
                     : null,
             ] : null),
+            'cancellation' => $this->whenLoaded('cancellationRequest', fn () => $this->cancellationRequest ? CancellationRequestResource::make($this->cancellationRequest) : null),
+            'returns' => $this->whenLoaded('returnRequests', fn () => ReturnRequestResource::collection($this->returnRequests)),
+            'refunds' => $this->whenLoaded('refunds', fn () => RefundResource::collection($this->refunds)),
             'lines' => $this->items->map(fn ($item) => [
                 'id' => "{$item->product_external_id}__{$item->size}",
+                'orderItemId' => $item->id,
                 'productId' => $item->product_external_id,
                 'productName' => $item->product_name,
                 'productSlug' => $item->product_slug,

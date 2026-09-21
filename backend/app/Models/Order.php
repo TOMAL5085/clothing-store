@@ -91,6 +91,21 @@ class Order extends Model
         return $this->hasOne(Shipment::class);
     }
 
+    public function cancellationRequest(): HasOne
+    {
+        return $this->hasOne(CancellationRequest::class);
+    }
+
+    public function returnRequests(): HasMany
+    {
+        return $this->hasMany(ReturnRequest::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
     public function getRouteKeyName(): string
     {
         return 'number';

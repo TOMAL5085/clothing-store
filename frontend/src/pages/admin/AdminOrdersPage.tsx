@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { Package, RefreshCcw, Search, ShieldAlert, Truck } from "lucide-react";
+import { CheckCircle, Package, RefreshCcw, Search, ShieldAlert, Truck, XCircle, RotateCcw } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PaginationMeta } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
@@ -43,6 +43,50 @@ interface AdminOrderShipment {
   events?: AdminOrderShipmentEvent[];
 }
 
+interface AdminRefund {
+  id: number;
+  status: string;
+  provider: string | null;
+  amount: number;
+  currency: string;
+  reason: string;
+  failureReason?: string | null;
+  requestedAt?: string | null;
+  processedAt?: string | null;
+}
+
+interface AdminCancellation {
+  id: number;
+  orderId: string;
+  status: string;
+  reason: string;
+  adminReason?: string | null;
+  requestedAt?: string | null;
+  refund?: AdminRefund | null;
+}
+
+interface AdminReturnItem {
+  id: number;
+  orderItemId: number;
+  productName?: string | null;
+  productId?: string | null;
+  size?: string | null;
+  quantity: number;
+  resolutionStatus: string;
+}
+
+interface AdminReturn {
+  id: number;
+  orderId: string;
+  status: string;
+  reason: string;
+  adminReason?: string | null;
+  requestedAt?: string | null;
+  receivedAt?: string | null;
+  items?: AdminReturnItem[];
+  refund?: AdminRefund | null;
+}
+
 interface AdminOrder {
   id: string;
   status: string;
@@ -71,6 +115,9 @@ interface AdminOrder {
   };
   payment: { provider: string; status: string; reference: string; amount: number; currency: string; method: string } | null;
   shipment: AdminOrderShipment | null;
+  cancellation?: AdminCancellation | null;
+  returns?: AdminReturn[];
+  refunds?: AdminRefund[];
   lines: AdminOrderLine[];
 }
 
@@ -169,6 +216,87 @@ export default function AdminOrdersPage() {
       pushToast("Order status updated");
     } catch (requestError) {
       pushToast(requestError instanceof Error ? requestError.message : "Order update failed");
+    } finally {
+      setSavingId(undefined);
+    }
+  };
+
+  const refreshOrders = async () => {
+    const response = await api<OrderCollection>(`/admin/orders?${searchParams}`);
+    setOrders(response.data);
+    setMeta(response.meta);
+    setNextStatus(Object.fromEntries(response.data.map((order) => [order.id, order.statusCode])));
+  };
+
+  const reviewCancellation = async (id: number, decision: "approved" | "rejected") => {
+    setSavingId(`cancel-${id}`);
+    try {
+      await api(`/admin/cancellations/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ decision }),
+      });
+      await refreshOrders();
+      pushToast(decision === "approved" ? "Cancellation approved" : "Cancellation rejected");
+    } catch (requestError) {
+      pushToast(requestError instanceof Error ? requestError.message : "Cancellation review failed");
+    } finally {
+      setSavingId(undefined);
+    }
+  };
+
+  const reviewReturn = async (id: number, decision: "approved" | "rejected") => {
+    setSavingId(`return-${id}`);
+    try {
+      await api(`/admin/returns/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ decision }),
+      });
+      await refreshOrders();
+      pushToast(decision === "approved" ? "Return approved" : "Return rejected");
+    } catch (requestError) {
+      pushToast(requestError instanceof Error ? requestError.message : "Return review failed");
+    } finally {
+      setSavingId(undefined);
+    }
+  };
+
+  const markReturnReceived = async (id: number) => {
+    setSavingId(`received-${id}`);
+    try {
+      await api(`/admin/returns/${id}/received`, { method: "POST", body: JSON.stringify({}) });
+      await refreshOrders();
+      pushToast("Return marked received");
+    } catch (requestError) {
+      pushToast(requestError instanceof Error ? requestError.message : "Return update failed");
+    } finally {
+      setSavingId(undefined);
+    }
+  };
+
+  const syncCourierStatus = async (orderId: string) => {
+    setSavingId(`sync-${orderId}`);
+    try {
+      await api(`/admin/orders/${encodeURIComponent(orderId)}/shipment/status/sync`, { method: "POST" });
+      await refreshOrders();
+      pushToast("Courier status synced");
+    } catch (requestError) {
+      pushToast(requestError instanceof Error ? requestError.message : "Courier sync failed");
+    } finally {
+      setSavingId(undefined);
+    }
+  };
+
+  const updateRefund = async (id: number, status: "processing" | "succeeded" | "failed" | "canceled") => {
+    setSavingId(`refund-${id}`);
+    try {
+      await api(`/admin/refunds/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      await refreshOrders();
+      pushToast("Refund updated");
+    } catch (requestError) {
+      pushToast(requestError instanceof Error ? requestError.message : "Refund update failed");
     } finally {
       setSavingId(undefined);
     }
@@ -426,6 +554,65 @@ export default function AdminOrdersPage() {
                           </p>
                         </div>
                       )}
+                      {(order.cancellation || (order.returns && order.returns.length > 0) || (order.refunds && order.refunds.length > 0)) && (
+                        <div className="border-t border-line pt-4 dark:border-line-dark">
+                          <h2 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">Resolution</h2>
+                          {order.cancellation && (
+                            <div className="mt-3 space-y-2 text-sm">
+                              <div className="flex justify-between gap-3">
+                                <span className="text-smoke dark:text-linen-dim">Cancellation</span>
+                                <span className="font-semibold capitalize text-ink dark:text-linen">{order.cancellation.status}</span>
+                              </div>
+                              <p className="text-smoke dark:text-linen-dim">{order.cancellation.reason}</p>
+                              {order.cancellation.status === "pending" && (
+                                <div className="flex flex-wrap gap-2">
+                                  <Button type="button" size="sm" variant="outline" icon={CheckCircle} loading={savingId === `cancel-${order.cancellation.id}`} onClick={() => void reviewCancellation(order.cancellation!.id, "approved")}>Approve</Button>
+                                  <Button type="button" size="sm" variant="ghost" icon={XCircle} loading={savingId === `cancel-${order.cancellation.id}`} onClick={() => void reviewCancellation(order.cancellation!.id, "rejected")}>Reject</Button>
+                                </div>
+                              )}
+                              {order.cancellation.refund && <p className="text-smoke dark:text-linen-dim">Refund: {order.cancellation.refund.status} · {format(order.cancellation.refund.amount)}</p>}
+                            </div>
+                          )}
+                          {order.returns?.map((entry) => (
+                            <div key={entry.id} className="mt-4 space-y-2 border-t border-line pt-3 text-sm dark:border-line-dark">
+                              <div className="flex justify-between gap-3">
+                                <span className="text-smoke dark:text-linen-dim">Return #{entry.id}</span>
+                                <span className="font-semibold capitalize text-ink dark:text-linen">{entry.status}</span>
+                              </div>
+                              <p className="text-smoke dark:text-linen-dim">{entry.reason}</p>
+                              {entry.items?.map((item) => (
+                                <p key={item.id} className="text-xs text-smoke dark:text-linen-dim">{item.productName} · Qty {item.quantity} · {item.resolutionStatus}</p>
+                              ))}
+                              {entry.status === "pending" && (
+                                <div className="flex flex-wrap gap-2">
+                                  <Button type="button" size="sm" variant="outline" icon={CheckCircle} loading={savingId === `return-${entry.id}`} onClick={() => void reviewReturn(entry.id, "approved")}>Approve</Button>
+                                  <Button type="button" size="sm" variant="ghost" icon={XCircle} loading={savingId === `return-${entry.id}`} onClick={() => void reviewReturn(entry.id, "rejected")}>Reject</Button>
+                                </div>
+                              )}
+                              {entry.status === "approved" && (
+                                <Button type="button" size="sm" variant="outline" icon={Package} loading={savingId === `received-${entry.id}`} onClick={() => void markReturnReceived(entry.id)}>Mark Received</Button>
+                              )}
+                              {entry.refund && <p className="text-smoke dark:text-linen-dim">Refund: {entry.refund.status} · {format(entry.refund.amount)}</p>}
+                            </div>
+                          ))}
+                          {order.refunds?.map((refund) => (
+                            <div key={refund.id} className="mt-4 space-y-2 border-t border-line pt-3 text-sm dark:border-line-dark">
+                              <div className="flex justify-between gap-3">
+                                <span className="text-smoke dark:text-linen-dim">Refund #{refund.id}</span>
+                                <span className="font-semibold capitalize text-ink dark:text-linen">{refund.status}</span>
+                              </div>
+                              <p className="text-smoke dark:text-linen-dim">{refund.reason} · {format(refund.amount)}</p>
+                              {!["succeeded", "canceled"].includes(refund.status) && (
+                                <div className="flex flex-wrap gap-2">
+                                  <Button type="button" size="sm" variant="outline" loading={savingId === `refund-${refund.id}`} onClick={() => void updateRefund(refund.id, "processing")}>Processing</Button>
+                                  <Button type="button" size="sm" variant="outline" loading={savingId === `refund-${refund.id}`} onClick={() => void updateRefund(refund.id, "succeeded")}>Succeeded</Button>
+                                  <Button type="button" size="sm" variant="ghost" loading={savingId === `refund-${refund.id}`} onClick={() => void updateRefund(refund.id, "failed")}>Failed</Button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {order.shipment && (
                         <div>
                           <h2 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen flex items-center gap-2"><Truck className="h-4 w-4" /> Shipping</h2>
@@ -504,6 +691,22 @@ export default function AdminOrdersPage() {
                         <div className="border-t border-line pt-4 dark:border-line-dark">
                           <h2 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">Update Shipment</h2>
                           <UpdateShipmentForm order={order} onClose={() => {}} />
+                        </div>
+                      )}
+                      {order.shipment && (
+                        <div className="border-t border-line pt-4 dark:border-line-dark">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              icon={RotateCcw}
+                              loading={savingId === `sync-${order.id}`}
+                              onClick={() => void syncCourierStatus(order.id)}
+                            >
+                              Sync Courier Status
+                            </Button>
+                          </div>
                         </div>
                       )}
                       <div className="flex flex-wrap items-end gap-2">

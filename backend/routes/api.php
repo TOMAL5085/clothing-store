@@ -3,13 +3,18 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
+use App\Http\Controllers\Api\V1\Admin\CancellationManagementController;
 use App\Http\Controllers\Api\V1\Admin\OrderManagementController;
 use App\Http\Controllers\Api\V1\Admin\ProductManagementController;
+use App\Http\Controllers\Api\V1\Admin\RefundManagementController;
+use App\Http\Controllers\Api\V1\Admin\ReturnManagementController;
 use App\Http\Controllers\Api\V1\Admin\ShipmentController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\OrderCancellationController;
+use App\Http\Controllers\Api\V1\OrderReturnController;
 use App\Http\Controllers\Api\V1\OrderTrackingController;
 use App\Http\Controllers\Api\V1\OtpController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
@@ -62,6 +67,11 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('addresses', AddressController::class);
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{order}', [OrderController::class, 'show']);
+        Route::get('orders/{order}/cancellation', [OrderCancellationController::class, 'show']);
+        Route::post('orders/{order}/cancellation', [OrderCancellationController::class, 'store']);
+        Route::get('orders/{order}/returns', [OrderReturnController::class, 'index']);
+        Route::post('orders/{order}/returns', [OrderReturnController::class, 'store']);
+        Route::get('orders/{order}/returns/{returnRequest}', [OrderReturnController::class, 'show']);
 
         // Tracking
         Route::get('orders/{order}/tracking', [OrderTrackingController::class, 'show']);
@@ -78,6 +88,13 @@ Route::prefix('v1')->group(function () {
             Route::get('orders', [OrderManagementController::class, 'index']);
             Route::get('orders/{order}', [OrderManagementController::class, 'show']);
             Route::patch('orders/{order}/status', [OrderManagementController::class, 'updateStatus']);
+            Route::get('cancellations', [CancellationManagementController::class, 'index']);
+            Route::patch('cancellations/{cancellationRequest}', [CancellationManagementController::class, 'update']);
+            Route::get('returns', [ReturnManagementController::class, 'index']);
+            Route::patch('returns/{returnRequest}', [ReturnManagementController::class, 'update']);
+            Route::post('returns/{returnRequest}/received', [ReturnManagementController::class, 'received']);
+            Route::get('refunds', [RefundManagementController::class, 'index']);
+            Route::patch('refunds/{refund}', [RefundManagementController::class, 'update']);
 
             // Shipping
             Route::post('orders/{order}/shipment', [ShipmentController::class, 'store']);

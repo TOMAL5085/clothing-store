@@ -12,13 +12,31 @@ class OrderController extends Controller
 {
     public function index(Request $request)
     {
-        return OrderResource::collection($request->user()->orders()->with(['items', 'shippingAddress', 'payment'])->latest()->get());
+        return OrderResource::collection($request->user()->orders()->with([
+            'items',
+            'shippingAddress',
+            'payment',
+            'shipment.events',
+            'cancellationRequest.refund',
+            'returnRequests.items.orderItem',
+            'returnRequests.refund',
+            'refunds',
+        ])->latest()->get());
     }
 
     public function show(Request $request, Order $order): OrderResource
     {
         Gate::authorize('view', $order);
 
-        return OrderResource::make($order->load(['items', 'shippingAddress', 'payment', 'shipment.events']));
+        return OrderResource::make($order->load([
+            'items',
+            'shippingAddress',
+            'payment',
+            'shipment.events',
+            'cancellationRequest.refund',
+            'returnRequests.items.orderItem',
+            'returnRequests.refund',
+            'refunds',
+        ]));
     }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
-import { Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Moon, Package, Save, ShieldCheck, Shirt, SlidersHorizontal, Truck } from "lucide-react";
+import { Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Moon, Package, RotateCcw, Save, ShieldCheck, Shirt, SlidersHorizontal, Truck, XCircle } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import { useAuthStore, type Address, type AddressPayload } from "@/store/authStore";
 import { useOrderStore, type Order } from "@/store/orderStore";
@@ -202,6 +202,56 @@ export default function AccountPage() {
     }
   };
 
+  const reloadOrders = async () => {
+    const response = await api<OrderCollection>("/orders");
+    setOrders(response.data);
+  };
+
+  const requestCancellation = async (order: Order) => {
+    const reason = window.prompt("Why would you like to cancel this order?");
+    if (!reason?.trim()) return;
+    setBusy(`cancel-${order.id}`);
+    setError("");
+    try {
+      await api(`/orders/${encodeURIComponent(order.id)}/cancellation`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      await reloadOrders();
+      pushToast("Cancellation request submitted");
+    } catch (requestError) {
+      setError(apiMessage(requestError, "Cancellation request could not be submitted."));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const requestReturn = async (order: Order, orderItemId?: number) => {
+    if (!orderItemId) {
+      setError("Return request could not identify the order item.");
+      return;
+    }
+    const reason = window.prompt("Why would you like to return this item?");
+    if (!reason?.trim()) return;
+    setBusy(`return-${order.id}-${orderItemId}`);
+    setError("");
+    try {
+      await api(`/orders/${encodeURIComponent(order.id)}/returns`, {
+        method: "POST",
+        body: JSON.stringify({
+          reason,
+          items: [{ order_item_id: orderItemId, quantity: 1 }],
+        }),
+      });
+      await reloadOrders();
+      pushToast("Return request submitted");
+    } catch (requestError) {
+      setError(apiMessage(requestError, "Return request could not be submitted."));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6 lg:py-16">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -301,10 +351,36 @@ export default function AccountPage() {
                               </Link>
                               <span className="text-xs text-smoke dark:text-linen-dim">Size {line.size} x {line.qty}</span>
                               <Price amount={(line.unitPrice ?? product?.price ?? 0) * line.qty} />
+                              {order.status === "Delivered" && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  icon={RotateCcw}
+                                  loading={busy === `return-${order.id}-${line.orderItemId}`}
+                                  onClick={() => void requestReturn(order, line.orderItemId)}
+                                >
+                                  Return
+                                </Button>
+                              )}
                             </li>
                           );
                         })}
                       </ul>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {["Pending", "Confirmed", "Processing"].includes(order.status) && !order.cancellation && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            icon={XCircle}
+                            loading={busy === `cancel-${order.id}`}
+                            onClick={() => void requestCancellation(order)}
+                          >
+                            Request Cancellation
+                          </Button>
+                        )}
+                      </div>
                       {order.shipment && (
                         <div className="mt-4 border-t border-line pt-4 dark:border-line-dark">
                           <h3 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen flex items-center gap-2"><Truck className="h-4 w-4" /> Shipping</h3>
@@ -362,6 +438,28 @@ export default function AccountPage() {
                               </div>
                             </div>
                           )}
+                        </div>
+                      )}
+                      {(order.cancellation || (order.returns && order.returns.length > 0) || (order.refunds && order.refunds.length > 0)) && (
+                        <div className="mt-4 border-t border-line pt-4 dark:border-line-dark">
+                          <h3 className="text-xs font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">Resolution</h3>
+                          {order.cancellation && (
+                            <p className="mt-2 text-sm text-smoke dark:text-linen-dim">
+                              Cancellation: <span className="font-semibold capitalize text-ink dark:text-linen">{order.cancellation.status}</span>
+                              {order.cancellation.refund && <> · Refund {order.cancellation.refund.status}</>}
+                            </p>
+                          )}
+                          {order.returns?.map((entry) => (
+                            <p key={entry.id} className="mt-2 text-sm text-smoke dark:text-linen-dim">
+                              Return #{entry.id}: <span className="font-semibold capitalize text-ink dark:text-linen">{entry.status}</span>
+                              {entry.refund && <> · Refund {entry.refund.status}</>}
+                            </p>
+                          ))}
+                          {order.refunds?.map((refund) => (
+                            <p key={refund.id} className="mt-2 text-sm text-smoke dark:text-linen-dim">
+                              Refund #{refund.id}: <span className="font-semibold capitalize text-ink dark:text-linen">{refund.status}</span> · <Price amount={refund.amount} />
+                            </p>
+                          ))}
                         </div>
                       )}
                     </div>

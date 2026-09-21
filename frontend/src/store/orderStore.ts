@@ -35,9 +35,57 @@ export interface OrderShipment {
   events?: OrderShipmentEvent[];
 }
 
+export interface OrderRefund {
+  id: number;
+  status: string;
+  provider: string | null;
+  amount: number;
+  currency: string;
+  reason: string;
+  failureReason?: string | null;
+  requestedAt?: string | null;
+  processedAt?: string | null;
+}
+
+export interface OrderCancellation {
+  id: number;
+  orderId: string;
+  status: string;
+  reason: string;
+  adminReason?: string | null;
+  requestedAt?: string | null;
+  reviewedAt?: string | null;
+  executedAt?: string | null;
+  refund?: OrderRefund | null;
+}
+
+export interface OrderReturnItem {
+  id: number;
+  orderItemId: number;
+  productName?: string | null;
+  productId?: string | null;
+  size?: string | null;
+  quantity: number;
+  resolutionStatus: string;
+}
+
+export interface OrderReturn {
+  id: number;
+  orderId: string;
+  status: string;
+  reason: string;
+  adminReason?: string | null;
+  requestedAt?: string | null;
+  reviewedAt?: string | null;
+  receivedAt?: string | null;
+  resolvedAt?: string | null;
+  items?: OrderReturnItem[];
+  refund?: OrderRefund | null;
+}
+
 export interface Order {
   id: string;
-  lines: CartLine[];
+  lines: Array<CartLine & { orderItemId?: number }>;
   subtotal: number;
   discount: number;
   shipping: number;
@@ -49,6 +97,9 @@ export interface Order {
   checkoutToken?: string | null;
   paymentStatus?: string;
   shipment?: OrderShipment | null;
+  cancellation?: OrderCancellation | null;
+  returns?: OrderReturn[];
+  refunds?: OrderRefund[];
 }
 
 interface OrderState {
