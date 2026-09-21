@@ -84,4 +84,20 @@ class ShipmentController extends Controller
             'status' => $mappedStatus,
         ]);
     }
+
+    public function sync(Order $order): \Illuminate\Http\JsonResponse
+    {
+        Gate::authorize('viewAny', Order::class);
+
+        $shipment = $order->shipment;
+        if (! $shipment) {
+            return response()->json(['message' => 'No shipment found for this order.'], 404);
+        }
+
+        $this->shipping->syncShipmentStatus($shipment);
+
+        return response()->json([
+            'status' => $shipment->status,
+        ]);
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Services\Couriers\CourierGateway;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Services\Couriers\CourierService;
@@ -90,6 +91,33 @@ class ShippingService
         }
 
         return $shipment->refresh();
+    }
+
+    /**
+     * Synchronize an existing Shipment with the latest courier status.
+     *
+     * @param  \App\Models\Shipment  $shipment
+     * @return void
+     */
+    public function syncShipmentStatus(Shipment $shipment): void
+    {
+        $rawStatus = $this->courierService->gateway()->getStatus($shipment);
+        $mappedStatus = $this->courierService->gateway()->mapExternalStatusToInternal($rawStatus);
+
+        // Check if mapped status is a valid internal status
+        if (! in_array($mappedStatus, Shipment::STATUSES, true)) {
+            // Unknown status - do not modify Shipment or create event
+            return;
+        }
+
+        // If status is the same as current, do nothing (idempotent)
+        if ($shipment->status === $mappedStatus) {
+            return;
+        }
+
+        // Status changed - reuse existing ShippingService transition logic
+        // This will validate the transition, update the Shipment, and create exactly one event
+        $this->updateShipment($shipment, ['status' => $mappedStatus]);
     }
 
     private function createEvent(Shipment $shipment, string $status, ?string $location, ?string $description): void

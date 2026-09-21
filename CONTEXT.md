@@ -477,6 +477,13 @@ Phase 4B-3C-2 is complete: Added status mapping layer. The `CourierGateway` inte
 - Endpoint returns the mapped courier status
 - Calling the endpoint does not modify shipment status
 
+Phase 4B-3C-3A is complete: Added `ShippingService::syncShipmentStatus(Shipment $shipment)` method that synchronizes an existing Shipment with the latest courier status. The method:
+1. Calls `CourierGateway->getStatus($shipment)` to get the raw courier status
+2. Maps it using `CourierGateway->mapExternalStatusToInternal($rawStatus)`
+3. If the mapped status differs from the Shipment's current status, reuses the existing `ShippingService::updateShipment()` transition logic (which validates via `canTransitionTo()`, updates the Shipment, and creates exactly one `ShipmentEvent`)
+4. If the status is unchanged, does nothing (idempotent)
+5. If the mapped status is not a valid internal status, returns without modifying the Shipment or creating an event
+
 Phase 4B-3B is complete. Recommended next work:
 
 1. Courier tracking synchronization with ShipmentEvent.
@@ -1076,6 +1083,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 53 | Courier shipment creation | ✅ | admin creates shipment via courier gateway, mock provider integration |
 | 54 | Courier status fetch (4B-3C-1) | ✅ | admin endpoint GET /api/v1/admin/orders/{order}/shipment/status returns courier status via CourierGateway->getStatus() |
 | 55 | Courier status mapping (4B-3C-2) | ✅ | maps external courier statuses to internal shipment statuses via CourierGateway->mapExternalStatusToInternal(); unknown statuses handled safely without modifying shipment |
+| 56 | Shipment event sync (4B-3C-3A) | ✅ | ShippingService::syncShipmentStatus() syncs Shipment with courier status, reuses transition validation and event creation; idempotent - no duplicate events on repeat calls |
+| 56 | Shipment event sync (4B-3C-3A) | ✅ | ShippingService::syncShipmentStatus() method synchronizes Shipment with courier status, reuses existing transition validation and event creation; idempotent - no duplicate events on repeat calls |
 
 Legend:
 
