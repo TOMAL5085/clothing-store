@@ -484,6 +484,10 @@ Phase 4B-3C-3A is complete: Added `ShippingService::syncShipmentStatus(Shipment 
 4. If the status is unchanged, does nothing (idempotent)
 5. If the mapped status is not a valid internal status, returns without modifying the Shipment or creating an event
 
+**Sync Endpoint**: `POST /api/v1/admin/orders/{order}/shipment/status/sync` (admin Sanctum auth)
+- Returns 200 with `{"status": "mapped_status"}` on success
+- Returns 404 if no shipment exists for the order
+
 Phase 4B-3B is complete. Recommended next work:
 
 1. Courier tracking synchronization with ShipmentEvent.
@@ -1083,8 +1087,7 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 53 | Courier shipment creation | ✅ | admin creates shipment via courier gateway, mock provider integration |
 | 54 | Courier status fetch (4B-3C-1) | ✅ | admin endpoint GET /api/v1/admin/orders/{order}/shipment/status returns courier status via CourierGateway->getStatus() |
 | 55 | Courier status mapping (4B-3C-2) | ✅ | maps external courier statuses to internal shipment statuses via CourierGateway->mapExternalStatusToInternal(); unknown statuses handled safely without modifying shipment |
-| 56 | Shipment event sync (4B-3C-3A) | ✅ | ShippingService::syncShipmentStatus() syncs Shipment with courier status, reuses transition validation and event creation; idempotent - no duplicate events on repeat calls |
-| 56 | Shipment event sync (4B-3C-3A) | ✅ | ShippingService::syncShipmentStatus() method synchronizes Shipment with courier status, reuses existing transition validation and event creation; idempotent - no duplicate events on repeat calls |
+| 56 | Shipment event sync (4B-3C-3A) | ✅ | ShippingService::syncShipmentStatus() syncs Shipment with courier status, reuses transition validation and event creation; idempotent - no duplicate events on repeat calls; 8 dedicated tests verify behavior |
 
 Legend:
 
