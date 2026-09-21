@@ -16,6 +16,7 @@ class OrderResolutionService
     public function __construct(
         private readonly OrderFulfillmentService $fulfillment,
         private readonly CourierService $courierService,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function createCancellationRequest(Order $order, User $user, string $reason): CancellationRequest
@@ -27,12 +28,18 @@ class OrderResolutionService
             throw ValidationException::withMessages(['order' => 'A cancellation request already exists for this order.']);
         }
 
-        return $order->cancellationRequest()->create([
+        $cancellation = $order->cancellationRequest()->create([
             'user_id' => $user->id,
             'status' => 'pending',
             'reason' => $reason,
             'requested_at' => now(),
         ])->load(['order', 'refund']);
+
+        DB::afterCommit(function () use ($order, $cancellation) {
+            $this->notifications->cancellationRequested($order, $cancellation);
+        });
+
+        return $cancellation;
     }
 
     public function reviewCancellation(CancellationRequest $request, User $admin, string $decision, ?string $adminReason = null): CancellationRequest
@@ -52,6 +59,10 @@ class OrderResolutionService
                     'reviewed_at' => now(),
                 ]);
 
+                DB::afterCommit(function () use ($request) {
+                    $this->notifications->cancellationRejected($request->order, $request->fresh());
+                });
+
                 return $request->fresh(['order', 'refund']);
             }
 
@@ -64,6 +75,10 @@ class OrderResolutionService
                 'reviewed_by' => $admin->id,
                 'reviewed_at' => now(),
             ]);
+
+            DB::afterCommit(function () use ($request) {
+                $this->notifications->cancellationApproved($request->order, $request->fresh());
+            });
 
             $this->executeCancellation($request->fresh(['order.payment']), $admin);
 
@@ -119,6 +134,10 @@ class OrderResolutionService
                 ]);
             }
 
+            DB::afterCommit(function () use ($order, $return) {
+                $this->notifications->returnRequested($order, $return->fresh(['items']));
+            });
+
             return $return->fresh(['order', 'items.orderItem', 'refund']);
         });
     }
@@ -141,6 +160,10 @@ class OrderResolutionService
                 ]);
                 $return->items()->update(['resolution_status' => 'rejected']);
 
+                DB::afterCommit(function () use ($return) {
+                    $this->notifications->returnRejected($return->order, $return->fresh());
+                });
+
                 return $return->fresh(['order', 'items.orderItem', 'refund']);
             }
 
@@ -151,6 +174,10 @@ class OrderResolutionService
                 'reviewed_at' => now(),
             ]);
             $return->items()->update(['resolution_status' => 'approved']);
+
+            DB::afterCommit(function () use ($return) {
+                $this->notifications->returnApproved($return->order, $return->fresh());
+            });
 
             return $return->fresh(['order', 'items.orderItem', 'refund']);
         });
@@ -173,7 +200,12 @@ class OrderResolutionService
             ]);
             $return->items()->update(['resolution_status' => 'received']);
 
-            $this->createRefundForReturn($return->fresh(['items.orderItem', 'order.payment']), $admin);
+            $refund = $this->createRefundForReturn($return->fresh(['items.orderItem', 'order.payment']), $admin);
+
+            DB::afterCommit(function () use ($return, $refund) {
+                $this->notifications->returnReceived($return->order, $return->fresh());
+                $this->notifications->refundCreated($return->order, $refund->fresh());
+            });
 
             return $return->fresh(['order', 'items.orderItem', 'refund']);
         });
@@ -181,7 +213,9 @@ class OrderResolutionService
 
     public function updateRefund(Refund $refund, User $admin, string $status, ?string $providerReference = null, ?string $failureReason = null): Refund
     {
-        return DB::transaction(function () use ($refund, $admin, $status, $providerReference, $failureReason) {
+        $oldStatus = $refund->status;
+
+        $updated = DB::transaction(function () use ($refund, $admin, $status, $providerReference, $failureReason) {
             $refund = Refund::query()->lockForUpdate()->findOrFail($refund->id);
 
             if (in_array($refund->status, ['succeeded', 'canceled'], true)) {
@@ -203,6 +237,19 @@ class OrderResolutionService
 
             return $refund->fresh(['order', 'returnRequest', 'cancellationRequest']);
         });
+
+        DB::afterCommit(function () use ($updated, $oldStatus) {
+            if ($oldStatus !== $updated->status) {
+                match ($updated->status) {
+                    'processing' => $this->notifications->refundProcessing($updated->order, $updated),
+                    'succeeded' => $this->notifications->refundCompleted($updated->order, $updated),
+                    'failed' => $this->notifications->refundFailed($updated->order, $updated),
+                    default => null,
+                };
+            }
+        });
+
+        return $updated;
     }
 
     private function executeCancellation(CancellationRequest $request, User $admin): void
@@ -225,7 +272,7 @@ class OrderResolutionService
         }
 
         if ($order->payment_status === 'paid') {
-            $this->createRefundForCancellation($request->fresh(['order.payment']), $admin);
+            $refund = $this->createRefundForCancellation($request->fresh(['order.payment']), $admin);
         } else {
             $order->payment?->update(['status' => 'canceled', 'failure_reason' => 'Order cancellation approved.']);
             $order->update(['payment_status' => 'canceled']);
@@ -233,6 +280,10 @@ class OrderResolutionService
 
         $order->update(['status' => 'cancelled']);
         $request->update(['status' => 'executed', 'executed_at' => now()]);
+
+        DB::afterCommit(function () use ($request) {
+            $this->notifications->cancellationCompleted($request->order, $request->fresh());
+        });
     }
 
     private function createRefundForCancellation(CancellationRequest $request, User $admin): Refund

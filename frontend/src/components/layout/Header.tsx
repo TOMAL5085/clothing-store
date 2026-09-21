@@ -301,11 +301,15 @@ import {
   ShoppingBag,
   Sun,
   User,
+  Bell,
 } from "lucide-react";
 import { PRIMARY_NAV } from "@/data/navigation";
 import { useCartStore, selectCartCount } from "@/store/cartStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
+import { useNotificationStore } from "@/store/notificationStore";
+import { useAuthStore } from "@/store/authStore";
+import { useEffect } from "react";
 import logoTextImg from "@/assets/imagery/TEXT-01-01.png";
 import { cn } from "@/utils/cn";
 
@@ -349,6 +353,15 @@ export function Header() {
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
   const toggleMobileNav = useUiStore((s) => s.toggleMobileNav);
   const setSearchOpen = useUiStore((s) => s.setSearchOpen);
+  const { user } = useAuthStore();
+  const { unreadCount, fetchUnreadCount } = useNotificationStore();
+
+  // Fetch unread count on mount and when user changes
+  useEffect(() => {
+    if (user) {
+      fetchUnreadCount();
+    }
+  }, [user, fetchUnreadCount]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-background">
@@ -423,6 +436,20 @@ export function Header() {
               <User size={18} strokeWidth={1.6} absoluteStrokeWidth />
             </span>
           </Link>
+
+          {/* Notifications Bell */}
+          {user && (
+            <Link to="/notifications" aria-label={`Notifications${unreadCount > 0 ? ` — ${unreadCount} unread` : ""}`} className="relative">
+              <span className="flex h-10 w-10 items-center justify-center text-foreground/85 transition-colors duration-300 hover:text-foreground">
+                <Bell size={18} strokeWidth={1.6} absoluteStrokeWidth />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center bg-accent px-1 font-display text-[9px] font-bold leading-none text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </span>
+            </Link>
+          )}
 
           <Link
             to="/wishlist"

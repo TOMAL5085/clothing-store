@@ -15,6 +15,10 @@ use Illuminate\Validation\ValidationException;
 
 class OrderFulfillmentService
 {
+    public function __construct(
+        private readonly NotificationService $notifications,
+    ) {}
+
     public function holdInventory(Order $order): void
     {
         if ($order->inventory_decremented_at) {
@@ -64,6 +68,8 @@ class OrderFulfillmentService
             return;
         }
 
+        $oldStatus = $order->status;
+
         $this->holdInventory($order);
 
         $payment->fill([
@@ -82,6 +88,11 @@ class OrderFulfillmentService
 
         $this->consumeCoupon($order);
         $this->clearCart($order);
+
+        // Send notifications after transaction commits
+        DB::afterCommit(function () use ($order, $oldStatus) {
+            $this->notifications->orderPaid($order, $oldStatus);
+        });
     }
 
     public function markFailed(Order $order, Payment $payment, string $reason, string $status = 'failed'): void
@@ -99,6 +110,10 @@ class OrderFulfillmentService
 
         $order->update(['payment_status' => $status]);
         $this->releaseInventory($order);
+
+        DB::afterCommit(function () use ($order, $reason) {
+            $this->notifications->orderPaymentFailed($order, $reason);
+        });
     }
 
     private function consumeCoupon(Order $order): void

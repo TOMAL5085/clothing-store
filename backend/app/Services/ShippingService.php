@@ -8,11 +8,13 @@ use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Services\Couriers\CourierService;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 class ShippingService
 {
     public function __construct(
         private readonly CourierService $courierService,
+        private readonly NotificationService $notifications,
     ) {
     }
 
@@ -90,7 +92,23 @@ class ShippingService
             $this->createEvent($shipment, $data['status'], $data['location'] ?? null, $data['description'] ?? null);
         }
 
-        return $shipment->refresh();
+        $shipment = $shipment->refresh();
+
+        // Send notifications after commit
+        if (isset($data['status']) && $data['status'] !== $oldStatus) {
+            $order = $shipment->order;
+            $newStatus = $data['status'];
+            DB::afterCommit(function () use ($order, $shipment, $oldStatus, $newStatus) {
+                $this->notifications->shipmentStatusChanged($order, $shipment, $oldStatus, $newStatus);
+                
+                // Also trigger order status change notification for key statuses
+                if (in_array($newStatus, ['shipped', 'delivered'], true)) {
+                    $this->notifications->orderStatusChanged($order, $oldStatus, $newStatus);
+                }
+            });
+        }
+
+        return $shipment;
     }
 
     /**

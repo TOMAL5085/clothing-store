@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\V1\Admin\ShipmentController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
+use App\Http\Controllers\Api\V1\Notifications\AdminNotificationController;
+use App\Http\Controllers\Api\V1\Notifications\NotificationController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderCancellationController;
 use App\Http\Controllers\Api\V1\OrderReturnController;
@@ -76,6 +78,12 @@ Route::prefix('v1')->group(function () {
         // Tracking
         Route::get('orders/{order}/tracking', [OrderTrackingController::class, 'show']);
 
+        // Notifications
+        Route::get('notifications', [NotificationController::class, 'index']);
+        Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::post('notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+
         Route::middleware('can:create,'.\App\Models\Product::class)->prefix('admin')->group(function () {
             Route::get('customers', [CustomerManagementController::class, 'index']);
             Route::get('customers/{customer}', [CustomerManagementController::class, 'show']);
@@ -102,6 +110,12 @@ Route::prefix('v1')->group(function () {
             Route::put('orders/{order}/shipment', [ShipmentController::class, 'update']);
             Route::get('orders/{order}/shipment/status', [ShipmentController::class, 'status']);
             Route::post('orders/{order}/shipment/status/sync', [ShipmentController::class, 'sync']);
+
+            // Admin Notifications
+            Route::get('notifications', [AdminNotificationController::class, 'index']);
+            Route::get('notifications/unread-count', [AdminNotificationController::class, 'unreadCount']);
+            Route::post('notifications/{id}/read', [AdminNotificationController::class, 'markAsRead']);
+            Route::post('notifications/mark-all-read', [AdminNotificationController::class, 'markAllAsRead']);
         });
     });
 });
