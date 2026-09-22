@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\ReviewReturnRequest;
 use App\Http\Resources\ReturnRequestResource;
 use App\Models\Order;
 use App\Models\ReturnRequest;
+use App\Services\AuditLogger;
 use App\Services\OrderResolutionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -27,7 +28,7 @@ class ReturnManagementController extends Controller
         return ReturnRequestResource::collection($returns);
     }
 
-    public function update(ReviewReturnRequest $request, ReturnRequest $returnRequest, OrderResolutionService $service): ReturnRequestResource
+    public function update(ReviewReturnRequest $request, ReturnRequest $returnRequest, OrderResolutionService $service, AuditLogger $audit): ReturnRequestResource
     {
         Gate::authorize('viewAny', Order::class);
 
@@ -38,15 +39,28 @@ class ReturnManagementController extends Controller
             $request->validated('admin_reason') ?? null,
         );
 
+        $audit->log('return.reviewed', $request->user(), $reviewed, [
+            'order_number' => $reviewed->order?->number,
+            'decision' => $request->validated('decision'),
+            'status' => $reviewed->status,
+        ]);
+
         return ReturnRequestResource::make($reviewed);
     }
 
-    public function received(Request $request, ReturnRequest $returnRequest, OrderResolutionService $service): ReturnRequestResource
+    public function received(Request $request, ReturnRequest $returnRequest, OrderResolutionService $service, AuditLogger $audit): ReturnRequestResource
     {
         Gate::authorize('viewAny', Order::class);
 
         $validated = $request->validate(['admin_reason' => ['sometimes', 'nullable', 'string', 'max:1000']]);
 
-        return ReturnRequestResource::make($service->markReturnReceived($returnRequest, $request->user(), $validated['admin_reason'] ?? null));
+        $received = $service->markReturnReceived($returnRequest, $request->user(), $validated['admin_reason'] ?? null);
+
+        $audit->log('return.received', $request->user(), $received, [
+            'order_number' => $received->order?->number,
+            'status' => $received->status,
+        ]);
+
+        return ReturnRequestResource::make($received);
     }
 }

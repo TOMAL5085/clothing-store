@@ -5,11 +5,12 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CreateShipmentRequest;
 use App\Http\Requests\Admin\UpdateShipmentRequest;
-use App\Http\Resources\OrderResource;
 use App\Http\Resources\ShipmentResource;
 use App\Models\Order;
+use App\Services\AuditLogger;
 use App\Services\Couriers\CourierGateway;
 use App\Services\ShippingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -19,10 +20,9 @@ class ShipmentController extends Controller
     public function __construct(
         private readonly ShippingService $shipping,
         private readonly CourierGateway $courier,
-    ) {
-    }
+    ) {}
 
-    public function store(CreateShipmentRequest $request, Order $order): ShipmentResource
+    public function store(CreateShipmentRequest $request, Order $order, AuditLogger $audit): ShipmentResource
     {
         Gate::authorize('viewAny', Order::class);
 
@@ -33,6 +33,13 @@ class ShipmentController extends Controller
         }
 
         $shipment = $this->shipping->createShipment($order, $request->validated());
+
+        $audit->log('shipment.created', $request->user(), $shipment, [
+            'order_number' => $order->number,
+            'status' => $shipment->status,
+            'carrier' => $shipment->carrier,
+            'tracking_number' => $shipment->tracking_number,
+        ]);
 
         return ShipmentResource::make($shipment);
     }
@@ -49,7 +56,7 @@ class ShipmentController extends Controller
         return ShipmentResource::make($shipment);
     }
 
-    public function update(UpdateShipmentRequest $request, Order $order): ShipmentResource
+    public function update(UpdateShipmentRequest $request, Order $order, AuditLogger $audit): ShipmentResource
     {
         Gate::authorize('update', $order);
 
@@ -58,6 +65,7 @@ class ShipmentController extends Controller
             return response()->json(['message' => 'No shipment found for this order.'], 404);
         }
 
+        $previousStatus = $shipment->status;
         $shipment = $this->shipping->updateShipment($shipment, $request->validated());
 
         // Sync order status with shipment status for shipped/delivered
@@ -65,10 +73,16 @@ class ShipmentController extends Controller
             $order->update(['status' => $shipment->status]);
         }
 
+        $audit->log('shipment.updated', $request->user(), $shipment, [
+            'order_number' => $order->number,
+            'previous_status' => $previousStatus,
+            'new_status' => $shipment->status,
+        ]);
+
         return ShipmentResource::make($shipment->refresh());
     }
 
-    public function status(Order $order): \Illuminate\Http\JsonResponse
+    public function status(Order $order): JsonResponse
     {
         Gate::authorize('viewAny', Order::class);
 
@@ -85,7 +99,7 @@ class ShipmentController extends Controller
         ]);
     }
 
-    public function sync(Order $order): \Illuminate\Http\JsonResponse
+    public function sync(Request $request, Order $order, AuditLogger $audit): JsonResponse
     {
         Gate::authorize('viewAny', Order::class);
 
@@ -94,7 +108,14 @@ class ShipmentController extends Controller
             return response()->json(['message' => 'No shipment found for this order.'], 404);
         }
 
+        $previousStatus = $shipment->status;
         $this->shipping->syncShipmentStatus($shipment);
+
+        $audit->log('shipment.synced', $request->user(), $shipment, [
+            'order_number' => $order->number,
+            'previous_status' => $previousStatus,
+            'new_status' => $shipment->refresh()->status,
+        ]);
 
         return response()->json([
             'status' => $shipment->status,

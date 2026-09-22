@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateOrderStatusRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
@@ -67,11 +68,18 @@ class OrderManagementController extends Controller
         ]));
     }
 
-    public function updateStatus(UpdateOrderStatusRequest $request, Order $order): OrderResource
+    public function updateStatus(UpdateOrderStatusRequest $request, Order $order, AuditLogger $audit): OrderResource
     {
         Gate::authorize('update', $order);
 
+        $previousStatus = $order->status;
         $order->update(['status' => $request->validated('status')]);
+
+        $audit->log('order.status_updated', $request->user(), $order, [
+            'order_number' => $order->number,
+            'previous_status' => $previousStatus,
+            'new_status' => $order->status,
+        ]);
 
         return OrderResource::make($order->fresh([
             'items',

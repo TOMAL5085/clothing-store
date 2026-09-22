@@ -12,6 +12,7 @@ use App\Models\Color;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Size;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -46,30 +47,48 @@ class ProductManagementController extends Controller
         return ProductResource::collection($products);
     }
 
-    public function store(StoreProductRequest $request): JsonResponse
+    public function store(StoreProductRequest $request, AuditLogger $audit): JsonResponse
     {
         $product = DB::transaction(fn () => $this->persistProduct(new Product, $request->validated()));
+
+        $audit->log('product.created', $request->user(), $product, [
+            'product_id' => $product->external_id,
+            'name' => $product->name,
+        ]);
 
         return response()->json(['data' => ProductResource::make($product)], 201);
     }
 
-    public function update(UpdateProductRequest $request, Product $product): ProductResource
+    public function update(UpdateProductRequest $request, Product $product, AuditLogger $audit): ProductResource
     {
-        return ProductResource::make(DB::transaction(fn () => $this->persistProduct($product, $request->validated())));
+        $product = DB::transaction(fn () => $this->persistProduct($product, $request->validated()));
+
+        $audit->log('product.updated', $request->user(), $product, [
+            'product_id' => $product->external_id,
+            'name' => $product->name,
+        ]);
+
+        return ProductResource::make($product);
     }
 
-    public function destroy(Product $product): JsonResponse
+    public function destroy(Request $request, Product $product, AuditLogger $audit): JsonResponse
     {
         $product->update(['is_active' => false, 'in_stock' => false]);
+
+        $audit->log('product.deactivated', $request->user(), $product, [
+            'product_id' => $product->external_id,
+            'name' => $product->name,
+        ]);
 
         return response()->json(['message' => 'Product deactivated.']);
     }
 
-    public function adjustInventory(AdjustInventoryRequest $request, Product $product): ProductResource
+    public function adjustInventory(AdjustInventoryRequest $request, Product $product, AuditLogger $audit): ProductResource
     {
         $data = $request->validated();
+        $previousQuantity = (int) $product->stock_quantity;
 
-        return ProductResource::make(DB::transaction(function () use ($product, $data) {
+        $resource = ProductResource::make(DB::transaction(function () use ($product, $data) {
             $target = isset($data['variant_id'])
                 ? $product->variants()->whereKey($data['variant_id'])->lockForUpdate()->firstOrFail()
                 : $product->newQuery()->whereKey($product->id)->lockForUpdate()->firstOrFail();
@@ -95,6 +114,15 @@ class ProductManagementController extends Controller
 
             return $product->load(['category', 'images', 'variants.size', 'variants.color']);
         }));
+
+        $audit->log('inventory.adjusted', $request->user(), $product, [
+            'product_id' => $product->external_id,
+            'mode' => $data['mode'],
+            'previous_quantity' => $previousQuantity,
+            'new_quantity' => (int) $product->refresh()->stock_quantity,
+        ]);
+
+        return $resource;
     }
 
     private function persistProduct(Product $product, array $data): Product

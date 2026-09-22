@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -44,7 +45,7 @@ class CustomerManagementController extends Controller
         return UserResource::make($customer->loadCount(['orders', 'addresses']));
     }
 
-    public function updateStatus(Request $request, User $customer): JsonResponse
+    public function updateStatus(Request $request, User $customer, AuditLogger $audit): JsonResponse
     {
         abort_unless($customer->role === 'customer', 404);
 
@@ -56,7 +57,14 @@ class CustomerManagementController extends Controller
             throw ValidationException::withMessages(['status' => 'You cannot change your own account status.']);
         }
 
+        $previousStatus = $customer->status;
         $customer->update(['status' => $validated['status']]);
+
+        $audit->log('customer.status_updated', $request->user(), $customer, [
+            'customer_id' => $customer->id,
+            'previous_status' => $previousStatus,
+            'new_status' => $customer->status,
+        ]);
 
         return response()->json(['data' => UserResource::make($customer->refresh()->loadCount(['orders', 'addresses']))]);
     }

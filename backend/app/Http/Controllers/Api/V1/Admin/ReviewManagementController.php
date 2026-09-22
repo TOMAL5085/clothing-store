@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\ModerateReviewRequest;
 use App\Http\Resources\ReviewResource;
 use App\Models\Order;
 use App\Models\Review;
+use App\Services\AuditLogger;
 use App\Services\ReviewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -42,10 +43,19 @@ class ReviewManagementController extends Controller
         return ReviewResource::make($review->load(['user', 'product']));
     }
 
-    public function update(ModerateReviewRequest $request, Review $review, ReviewService $service): ReviewResource
+    public function update(ModerateReviewRequest $request, Review $review, ReviewService $service, AuditLogger $audit): ReviewResource
     {
         Gate::authorize('viewAny', Order::class);
 
-        return ReviewResource::make($service->moderate($review, $request->validated('decision')));
+        $previousStatus = $review->status;
+        $moderated = $service->moderate($review, $request->validated('decision'));
+
+        $audit->log('review.moderated', $request->user(), $moderated, [
+            'product_id' => $moderated->product?->external_id,
+            'previous_status' => $previousStatus,
+            'new_status' => $moderated->status,
+        ]);
+
+        return ReviewResource::make($moderated);
     }
 }

@@ -13,11 +13,12 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `198 passed`, `982 assertions`.
+- Current backend test result: ✅ `231 passed`, `1125 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
 - Phase 7 (admin analytics & reporting) is implemented and tested (`Phase7AnalyticsTest`, 32 tests).
+- Phase 8 (security hardening & auditability) is implemented and tested (`Phase8SecurityTest`, 33 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -169,12 +170,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":198,"passed":198,"assertions":982,"duration_ms":53765}
+{"tool":"phpunit","result":"passed","tests":231,"passed":231,"assertions":1125,"duration_ms":67831}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), and Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests).
 
 ## Git State
 
@@ -852,6 +853,74 @@ Implemented a comprehensive notification system using Laravel's native notificat
 #### Next recommended phase
 - Per earlier roadmap notes: SMS/WhatsApp integrations, real-time (Reverb/WebSocket) updates, notification preferences. Do not start them without an explicit phase brief.
 
+### Phase 8 - Security, Abuse Prevention & Auditability
+
+**Status: ✅ Complete**
+
+This is a hardening phase, not a penetration test and not a substitute for production infrastructure (WAF, TLS termination, DDoS protection — see limitations). No payment, courier, or authorization architecture was replaced.
+
+#### Audit findings (verified in the repo before changing anything)
+- **Already strong, left untouched**: generic login failure message (no account enumeration); generic password-reset response with Laravel's expiring single-use broker; OTP resend throttle (1/min) + 5-attempt cap + hashed codes; server-authoritative checkout (totals/provider computed server-side, `payment_provider`/`provider` stripped from input in `CreateOrderRequest::prepareForValidation`); UUID checkout tokens compared with `hash_equals`; Stripe signature-verified idempotent webhooks; SSLCOMMERZ server-side `val_id` + amount matching with paid guards; coupon `validateFor` with global + per-customer limits; review eligibility/ownership/moderation; `can:create,Product` gate on every admin route plus per-action `Gate` checks; CORS restricted to explicit `FRONTEND_URLS` origins with no wildcard; logging limited to order numbers/event ids (no payloads/secrets); frontend has no `dangerouslySetInnerHTML`, card input lives only in component state and only last-four digits persist server-side.
+- **Gaps closed by this phase**: zero rate limiting anywhere; no audit trail for admin mutations; no application security headers; registration/password-reset/OTP/guest-lookup/checkout/promo/review/cart/wishlist/resolution endpoints unthrottled.
+
+#### Rate limit architecture
+- Laravel named limiters registered in `AppServiceProvider::boot()`, thresholds centralized in `config/security.php`. All limiters segment **authenticated users by ID and guests by IP** (login/password-reset use lowercased `email|ip`), so one abusive client cannot block shared-network users. Secrets are never limiter keys. Exceeding a limit returns Laravel's standard **429 with `Retry-After`**. Webhook/callback routes are deliberately **unthrottled** (providers retry delivery; throttling could break reconciliation), as are public catalog reads and admin/analytics GETs.
+- Limiters (`name` → scope → key → thresholds → purpose):
+  - `login` → `POST auth/login` → email+IP → 5/min + 30/hour → credential stuffing / brute force.
+  - `register` → `POST auth/register` → IP → 3/min + 10/hour → mass account creation.
+  - `password-reset` → `POST auth/forgot-password` → email+IP → 3/min + 10/hour → reset-mail abuse.
+  - `otp` → `POST auth/otp*` → user-or-IP → 10/min → OTP flooding (complements the 1/min resend rule + 5-attempt cap).
+  - `order-lookup` → `GET checkout/orders/{order}` → user-or-IP → 20/min → guest-token brute forcing backstop (122-bit UUID tokens make guessing infeasible; this caps automation).
+  - `checkout-quote` → `POST checkout/quote` → user-or-IP → 30/min → quote scraping.
+  - `checkout` → `POST checkout/orders` → user-or-IP → 6/min + 60/hour → order flooding while allowing legitimate retries.
+  - `promo` → `POST cart/promo` → user-or-IP → 10/min + 100/hour → coupon-code guessing.
+  - `reviews` → review create/update/delete → user ID → 10/min + 100/hour → review spam (eligibility + moderation unchanged).
+  - `storefront-mutations` → cart/wishlist mutations → user-or-IP → 60/min → API flooding without hurting normal bursts.
+  - `resolution-requests` → cancellation/return creation → user ID → 10/min + 60/hour.
+  - `admin-mutations` → all non-GET admin routes (products, inventory, orders, shipments incl. courier sync, cancellations, returns, refunds, reviews, customers) → admin user ID → 120/min → runaway-script backstop; dashboard/analytics reads unaffected.
+- False-positive review: thresholds allow normal checkout + payment retry, review editing, guest lookup, and dashboard use; per-user segmentation keeps shared-IP customers working. Full suite (231 tests) passes with limiters active, proving legitimate flows are unaffected.
+
+#### Authentication / abuse controls (beyond throttling)
+- No login/register/password-reset logic changes were needed: messages already generic, roles forced server-side (`role => customer`), broker tokens already expiring/single-use. Tests prove `role=admin` smuggling is ignored on register and profile update.
+
+#### Guest lookup, checkout, payments, promos, reviews, wishlist/cart
+- No architectural changes: UUID tokens + `hash_equals` ownership check kept; server remains authoritative for price/inventory/discount/shipping/provider/totals/ownership/payment state (tests prove provider/total/status overrides are ignored); Stripe/SSLCOMMERZ flows kept with signature/server-side validation; duplicate-callback idempotency re-covered by new tests (Stripe invalid-signature 400, SSLCOMMERZ duplicate IPN single payment, empty callback no-op).
+
+#### Admin mutation security
+- Verified: every admin mutation requires the existing gate (method/parameter tampering can't bypass route-level `can` + in-action `Gate` checks); FormRequests accept only allowlisted fields (statuses constrained by `in:` rules; review/verified fields not validatable). Tests prove customers get 403 and state is unchanged.
+
+#### Audit logging
+- New `audit_logs` table (migration `2026_09_22_000002`): `actor_id` (nullable, null-on-delete so history survives account removal), `actor_role`, `action` (indexed), nullable polymorphic `auditable`, `ip`, `user_agent`, `metadata` JSON, single `created_at` (indexed). No `updated_at` (rows immutable).
+- `App\Services\AuditLogger::log()` captures actor/role/IP/UA and runs metadata through a recursive sanitizer enforcing a sensitive-key denylist (`password, card, cvv, cvc, secret, checkout_token, authorization, bearer, remember_token`), scalar-only values, 500-char cap — so even a careless caller cannot persist credentials.
+- Recorded actions: `product.created/updated/deactivated`, `inventory.adjusted` (with previous/new quantities), `order.status_updated`, `shipment.created/updated/synced`, `cancellation.reviewed`, `return.reviewed/received`, `refund.updated`, `review.moderated`, `customer.status_updated`. Metadata holds only public references (order numbers, product external ids, old/new statuses, amounts) — never tokens, addresses, emails, or card data. Ordinary GETs and customer actions are not logged.
+- Admin API: `GET admin/audit-logs` (filters `action/actor_id/from/to`, `per_page` max 100, newest-first paginated) + `GET admin/audit-logs/actions`; admin-only via the existing gate. Admin UI: `AdminAuditPage` at `/admin/audit-log` with action/actor/date filters, paginated table (time, action, actor, target, change, IP), linked from all admin headers, the route registry, and the AccountPage admin cards. Retention: `security.audit_retention_days` (default 365, env-overridable) enforced by `php artisan audit:prune`.
+
+#### Security headers / CORS / errors / logging
+- New `SecurityHeaders` middleware (global): `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `X-Frame-Options: SAMEORIGIN` — all safe for the JSON API + SPA. HSTS/TLS/WAF/edge throttling are reverse-proxy responsibilities (see limitations).
+- CORS unchanged (already correct): explicit `FRONTEND_URLS` origins, credentials supported, no wildcard. Production must set `FRONTEND_URLS` to the real storefront origin(s); local dev keeps `http://localhost:5173`.
+- Errors unchanged (already correct): `APP_DEBUG` defaults false, API responses forced JSON, no stack traces/paths/secrets in responses; validation messages stay descriptive. Existing `Log::` calls audited — order numbers and event ids only.
+- Frontend: no changes required beyond nav links — token lives in `localStorage` (standard for this Sanctum bearer SPA), admin pages guard on role client-side with server enforcement, errors render generic `ApiError` messages, no secrets in Vite env.
+
+#### Files changed
+- New: `config/security.php`, `app/Services/AuditLogger.php`, `app/Models/AuditLog.php`, `app/Http/Middleware/SecurityHeaders.php`, `app/Http/Controllers/Api/V1/Admin/AuditLogController.php`, `app/Http/Resources/AuditLogResource.php`, `app/Console/Commands/PruneAuditLogs.php`, migration `2026_09_22_000002_create_audit_logs_table.php`, `database/factories/AuditLogFactory.php`, `tests/Feature/Phase8SecurityTest.php`, `frontend/src/pages/admin/AdminAuditPage.tsx`.
+- Modified: `app/Providers/AppServiceProvider.php` (limiters), `bootstrap/app.php` (headers middleware), `routes/api.php` (throttle attachments + audit routes), 8 admin controllers (audit hooks only), `frontend/src/App.tsx` + `AccountPage.tsx` + 6 admin pages (nav links), `CONTEXT.md`.
+
+#### Tests
+- New `backend/tests/Feature/Phase8SecurityTest.php` — **33 tests, 143 assertions**: login/register/reset/OTP throttling with 429 + `Retry-After`; login still works; identical enumeration-safe messages; guest lookup valid/invalid/throttled; checkout flood throttling with provider/total/status override rejection; promo flood throttling with discount-amount rejection; Stripe invalid-signature 400; SSLCOMMERZ duplicate idempotency + empty-callback no-op; review spam throttle with ownership/eligibility/field-ignorance checks; storefront-mutation throttle; cross-user cart 404; resolution-request throttle; customer-403 on admin mutation; admin-mutation throttle; audit event content without secrets; sanitizer unit coverage; audit read auth + filters; prune command; register/profile/review mass-assignment rejection; security headers; 4-response sensitive-value scan.
+- Full suite: `231 passed (1125 assertions)` — 198 pre-existing + 33 new, zero failures.
+- Frontend: `npm run build` ✅ (vite 7.3.6, `dist/index.html` 1,923.86 kB, gzip 1,050.00 kB, ~10.5s).
+- `vendor/bin/pint --dirty --format agent` ✅ clean.
+
+#### Remaining limitations (deployment-specific, NOT implemented)
+- No WAF, CDN edge filtering, or infrastructure DDoS protection in the repo.
+- TLS termination and HSTS must be configured on the production reverse proxy.
+- No CAPTCHA (no provider in the repo; throttling used instead), no fraud vendor, no SIEM/external monitoring.
+- Rate-limit counters use the default cache store; multi-server deployments must point the cache at a shared driver.
+- This phase does not claim the application is "fully secure" — it hardens the documented surfaces with tested controls.
+
+#### Next recommended phase
+- Per earlier roadmap notes: SMS/WhatsApp integrations, real-time (Reverb/WebSocket) updates, notification preferences. Do not start them without an explicit phase brief.
+
 ## Frontend Architecture
 
 The frontend is a React SPA with route-level lazy loading.
@@ -1379,6 +1448,7 @@ Feature tests currently cover:
 - wishlist add/remove/list/isolation/inactive-product handling for guest and authenticated flows
 - analytics revenue/AOV/series/breakdown/product/category/customer/inventory/review/wishlist math backed by real persisted rows
 - analytics authorization (admin-only) and response hygiene (no sensitive values)
+- rate-limit behavior (429 + Retry-After) and audit-log integrity (allowlisted metadata only)
 
 When adding backend behavior, add or update feature tests first/alongside the implementation.
 
@@ -1465,6 +1535,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 68 | Phase 6 test coverage | ✅ | `Phase6ReviewsWishlistTest`, 35 feature tests; suite total 166 passed (740 assertions) |
 | 69 | Admin analytics & reporting | ✅ | `AnalyticsService` + 9 admin endpoints, metric definitions below, dashboard UI at `/admin/analytics` |
 | 70 | Phase 7 test coverage | ✅ | `Phase7AnalyticsTest`, 32 feature tests; suite total 198 passed (982 assertions) |
+| 71 | Security hardening & auditability | ✅ | 12 named rate limiters, audit log + admin UI, security headers; see Phase 8 section |
+| 72 | Phase 8 test coverage | ✅ | `Phase8SecurityTest`, 33 tests; suite total 231 passed (1125 assertions) |
 
 Legend:
 

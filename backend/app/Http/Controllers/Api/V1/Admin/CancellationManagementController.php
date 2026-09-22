@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\ReviewCancellationRequest;
 use App\Http\Resources\CancellationRequestResource;
 use App\Models\CancellationRequest;
 use App\Models\Order;
+use App\Services\AuditLogger;
 use App\Services\OrderResolutionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -27,7 +28,7 @@ class CancellationManagementController extends Controller
         return CancellationRequestResource::collection($requests);
     }
 
-    public function update(ReviewCancellationRequest $request, CancellationRequest $cancellationRequest, OrderResolutionService $service): CancellationRequestResource
+    public function update(ReviewCancellationRequest $request, CancellationRequest $cancellationRequest, OrderResolutionService $service, AuditLogger $audit): CancellationRequestResource
     {
         Gate::authorize('viewAny', Order::class);
 
@@ -37,6 +38,12 @@ class CancellationManagementController extends Controller
             $request->validated('decision'),
             $request->validated('admin_reason') ?? null,
         );
+
+        $audit->log('cancellation.reviewed', $request->user(), $reviewed, [
+            'order_number' => $reviewed->order?->number,
+            'decision' => $request->validated('decision'),
+            'status' => $reviewed->status,
+        ]);
 
         return CancellationRequestResource::make($reviewed);
     }

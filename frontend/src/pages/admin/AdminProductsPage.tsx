@@ -181,6 +181,12 @@ export default function AdminProductsPage() {
             Analytics
           </Link>
           <Link
+            to="/admin/audit-log"
+            className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim"
+          >
+            Audit Log
+          </Link>
+          <Link
             to="/account"
             className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim"
           >
