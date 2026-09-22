@@ -11,10 +11,13 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Str;
 
 abstract class AdminOrderNotification extends Notification implements ShouldQueue
 {
     use Queueable;
+
+    public string $messagingUuid;
 
     public function __construct(
         public Order $order,
@@ -22,7 +25,17 @@ abstract class AdminOrderNotification extends Notification implements ShouldQueu
         protected string $message,
         protected string $category,
         protected ?string $actionUrl = null,
-    ) {}
+    ) {
+        $this->messagingUuid = (string) Str::uuid();
+    }
+
+    /**
+     * @see OrderNotification::messagingCategory()
+     */
+    public function messagingCategory(): string
+    {
+        return $this->category;
+    }
 
     public function via(object $notifiable): array
     {

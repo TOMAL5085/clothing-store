@@ -2,37 +2,37 @@
 
 namespace App\Services;
 
-use App\Models\Order;
 use App\Models\CancellationRequest;
-use App\Models\ReturnRequest;
+use App\Models\Order;
 use App\Models\Refund;
+use App\Models\ReturnRequest;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Notifications\AdminCancellationRequestNotification;
 use App\Notifications\AdminNewOrderNotification;
 use App\Notifications\AdminOrderPaidNotification;
-use App\Notifications\AdminCancellationRequestNotification;
-use App\Notifications\AdminReturnRequestNotification;
 use App\Notifications\AdminRefundActionRequiredNotification;
+use App\Notifications\AdminReturnRequestNotification;
 use App\Notifications\AdminShipmentProblemNotification;
-use App\Notifications\OrderPlacedNotification;
+use App\Notifications\CancellationApprovedNotification;
+use App\Notifications\CancellationCompletedNotification;
+use App\Notifications\CancellationRejectedNotification;
+use App\Notifications\CancellationRequestedNotification;
 use App\Notifications\OrderPaidNotification;
 use App\Notifications\OrderPaymentFailedNotification;
+use App\Notifications\OrderPlacedNotification;
 use App\Notifications\OrderStatusChangedNotification;
-use App\Notifications\ShipmentStatusChangedNotification;
-use App\Notifications\CancellationRequestedNotification;
-use App\Notifications\CancellationApprovedNotification;
-use App\Notifications\CancellationRejectedNotification;
-use App\Notifications\CancellationCompletedNotification;
-use App\Notifications\ReturnRequestedNotification;
-use App\Notifications\ReturnApprovedNotification;
-use App\Notifications\ReturnRejectedNotification;
-use App\Notifications\ReturnReceivedNotification;
-use App\Notifications\RefundCreatedNotification;
-use App\Notifications\RefundProcessingNotification;
 use App\Notifications\RefundCompletedNotification;
+use App\Notifications\RefundCreatedNotification;
 use App\Notifications\RefundFailedNotification;
+use App\Notifications\RefundProcessingNotification;
+use App\Notifications\ReturnApprovedNotification;
+use App\Notifications\ReturnReceivedNotification;
+use App\Notifications\ReturnRejectedNotification;
+use App\Notifications\ReturnRequestedNotification;
+use App\Notifications\ShipmentStatusChangedNotification;
+use App\Services\Messaging\MessageDispatcher;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class NotificationService
@@ -51,6 +51,11 @@ class NotificationService
                 'error' => $e->getMessage(),
             ]);
         }
+
+        // Outbound SMS/WhatsApp fan-out. Evaluated after the in-app/email
+        // send; every call site already runs after transaction commit, and
+        // the dispatcher never throws into business flows.
+        app(MessageDispatcher::class)->dispatchFor($user, $notification);
     }
 
     /**
@@ -270,6 +275,8 @@ class NotificationService
                     'error' => $e->getMessage(),
                 ]);
             }
+
+            app(MessageDispatcher::class)->dispatchFor($admin, $notification);
         }
     }
 }

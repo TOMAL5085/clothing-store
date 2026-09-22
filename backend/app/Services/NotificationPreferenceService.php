@@ -124,6 +124,27 @@ class NotificationPreferenceService
     }
 
     /**
+     * Single-channel check used by outbound messaging. Missing rows mean
+     * enabled, matching the API defaults.
+     */
+    public function isChannelEnabled(User $user, string $category, string $channel): bool
+    {
+        $flag = match ($channel) {
+            'sms' => 'sms_enabled',
+            'whatsapp' => 'whatsapp_enabled',
+            'mail' => 'email_enabled',
+            default => 'in_app_enabled',
+        };
+
+        $row = NotificationPreference::query()
+            ->where('user_id', $user->id)
+            ->where('category', $category)
+            ->first();
+
+        return $row ? (bool) $row->{$flag} : true;
+    }
+
+    /**
      * Filter a notification's delivery channels through the recipient's
      * preferences. The database + broadcast transports share the in-app
      * flag (broadcast only feeds the in-app bell); mail uses the email

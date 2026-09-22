@@ -13,7 +13,7 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `279 passed`, `1386 assertions`.
+- Current backend test result: ✅ `304 passed`, `1489 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
@@ -21,6 +21,7 @@ This project is an ecommerce website named `clothing-store`.
 - Phase 8 (security hardening & auditability) is implemented and tested (`Phase8SecurityTest`, 33 tests).
 - Phase 9 (production readiness & reliability) is implemented and tested (`Phase9ReliabilityTest`, 23 tests).
 - Phase 10 (notification preferences + real-time notifications) is implemented and tested (`Phase10NotificationRealtimeTest`, 25 tests).
+- Phase 11 (SMS/WhatsApp delivery foundation, mock drivers only, no vendor selected) is implemented and tested (`Phase11MessagingDeliveryTest`, 25 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -172,12 +173,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":279,"passed":279,"assertions":1386,"duration_ms":75181}
+{"tool":"phpunit","result":"passed","tests":304,"passed":304,"assertions":1489,"duration_ms":107396}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests), and Phase 11 (`Phase11MessagingDeliveryTest`, 25 dedicated feature tests).
 
 ## Git State
 
@@ -1044,6 +1045,65 @@ Built on the existing notification architecture (25 files: 23 concrete + 2 base)
 - Refetch-on-event (not optimistic prepend) trades one extra HTTP call for zero desync risk.
 - This phase does not claim full production realtime coverage — socket server operation/scaling stays a deployment concern.
 
+### Phase 11 - SMS / WhatsApp Notification Delivery Foundation
+
+**Status: ✅ Complete**
+
+> No real SMS/WhatsApp provider is configured or selected in Phase 11.
+> `SMS_DRIVER`/`WHATSAPP_DRIVER` default to `mock`. No real-world message
+> delivery has been tested — only the mock drivers, which perform no I/O.
+
+Provider-neutral foundation: when the client selects a vendor, work is limited to one gateway class + one config entry per channel. No notification, service, job, or test changes required.
+
+#### Audit findings (verified before changing anything)
+- **Reused as-is**: `NotificationPreferenceService` catalog (23 categories) with stored `sms_enabled`/`whatsapp_enabled` flags; `NotificationService::notifyUser`/`notifyAdmins` choke points, every call site already inside `DB::afterCommit`; `ShouldQueue` notifications; `database` queue default with `failed_jobs` (database-uuids); `users.phone` (nullable, fillable, user-editable, no format enforcement); `notifications.id` is UUID; order messages contain no tokens/cards/passwords (only the action URL carries the owner checkout-token deep link).
+- **Gaps closed**: no outbound-messaging abstraction, no delivery tracking, no phone validation, no queued async sending for messaging, `sms_enabled`/`whatsapp_enabled` previously inert.
+
+#### Messaging architecture
+- `App\Services\Messaging\MessageGateway` interface (`name()`, `send($recipient, $message, $options): array{provider_message_id, status}`, throws `MessageGatewayException` carrying a safe `errorCode`). Real drivers must set HTTP timeouts (same pattern as `payments.http_timeout`) and accept `options['idempotency_key']`.
+- `MessageGatewayResolver::for('sms'|'whatsapp')` reads `messaging.{channel}_driver` → `messaging.drivers.{driver}.{channel}_class`. Unknown channel/driver throws `InvalidArgumentException` (never silently misrouted); `configured()` boolean for pre-checks.
+- `MessageDispatcher::dispatchFor(User, Notification)` — called from `notifyUser`/`notifyAdmins` after the in-app/email send, wrapped so it can never throw into checkout/payment flows. Central `CHANNEL_CATEGORIES` map (only 7 customer categories: order_placed/paid/payment_failed/status_changed, shipment_status_changed, cancellation_completed, refund_completed; admin categories excluded by design). Per channel it checks: preference flag → valid phone → driver configured → `firstOrCreate` delivery row → dispatch job only when the row is new.
+- `SendOutboundMessage` job (`tries = 3`, `backoff = [10, 60, 300]`): reloads the row, returns early if missing or terminal (no duplicate sends), increments attempts + timestamp, sends with `idempotency_key = message_key`, records sent/failed states, rethrows transient failures for worker retry, and `failed()` marks the row failed when retries exhaust. The rendered body travels in the job payload (rebuilt never from stored parts); delivery rows store template key + order number, never bodies or secrets.
+- `MessageTemplates::render()` builds the body from the notification's own curated title/message (single source of truth, no per-category copy to drift) plus a token-free account URL, collapsed whitespace, capped at 160 chars SMS / 1000 WhatsApp.
+
+#### Delivery persistence
+- `notification_deliveries` (migration `2026_09_22_000004`): `message_key` (stable UUID minted in the notification constructor) + `unique(message_key, channel)` as the idempotency key; nullable `notification_id` UUID reserved for future DB-row correlation; `user_id`, `channel`, `recipient` (normalized phone), `template` (= category), `order_number`, `status` (`queued`/`sent`/`failed`; `delivered` reserved for future provider DLR webhooks — mock reports `sent` only), `provider`, `provider_message_id`, `attempts`, `last_attempted_at`, `delivered_at`, `failed_at`, `error_code`, timestamps. Column allowlist verified by test — no bodies, tokens, cards, or credentials.
+- Ordering: rows are created synchronously inside the caller's transaction (they roll back with it — tested), while the send job runs post-commit on the queue worker (`sync` inline in tests/dev). DB notification rows and delivery rows are created in the same flow; messaging never gates checkout (a failing provider still yields HTTP 201 + paid order — tested with a rejecting recipient).
+
+#### Preferences, phone, eligibility
+- `sms_enabled`/`whatsapp_enabled` now gate actual sends via `NotificationPreferenceService::isChannelEnabled()` (missing rows = enabled, matching API defaults). In-app/email/broadcast behavior unchanged.
+- Phone reuse: existing `users.phone`, normalized to E.164-ish (`+?`, 7–15 digits, leading non-zero) by `MessageDispatcher::normalizePhone()`; missing/invalid → silent skip, no row, no error. No duplicate field, no checkout country-routing changes, payment selection untouched.
+- Ineligible cases (no phone, bad phone, pref off, unmapped category, admin category, unknown driver) create no rows and send nothing; unknown drivers additionally log a warning instead of failing.
+
+#### Mock gateways
+- `MockSmsGateway` / `MockWhatsappGateway` (`mock-sms` / `mock-whatsapp`): static in-test outbox (`sent()`), deterministic `mock-{channel}-{n}` IDs, `reset()`, simulated rejection for recipients ending in `0000` (`mock_rejected`). Zero I/O, zero network — the suite never touches the internet.
+
+#### Logging / observability
+- `messaging.sent` (info) and `messaging.send_failed` / `dispatch_failed` / `driver_not_configured` (warnings) with channel, provider, delivery/order IDs, masked recipient (`***` + last 4), attempts, error codes, and request ID. Bodies, phones in full, and credentials are never logged. Failures are additionally visible in `failed_jobs` and delivery-row status. No customer-facing delivery API was added (no arbitrary-send endpoint exists — tested 404); no admin delivery dashboard (failures surface via jobs/logs/rows per the brief).
+
+#### Frontend
+- Intentionally unchanged (verified identical build hash): the Phase 10 preferences UI already renders SMS/WhatsApp toggles disabled as "soon", which remains the only honest presentation while drivers are mock-only. Enabling via API works end-to-end for future use.
+
+#### Files changed
+- New backend: `config/messaging.php`, migration `2026_09_22_000004`, `NotificationDelivery` model + factory, `Messaging/{MessageGateway, MessageGatewayException, MessageGatewayResolver, MessageDispatcher, MessageTemplates, MockSmsGateway, MockWhatsappGateway}.php`, `Jobs/SendOutboundMessage.php`, `Phase11MessagingDeliveryTest`.
+- Modified backend: both notification base classes (`messagingUuid` + `messagingCategory()` only), `NotificationService` (two dispatcher calls), `.env.example` (`SMS_DRIVER`/`WHATSAPP_DRIVER`), `CONTEXT.md`.
+- Frontend: none (deliberate; build output identical to Phase 10).
+
+#### Tests
+- New `backend/tests/Feature/Phase11MessagingDeliveryTest.php` — **25 tests**: mock drivers send deterministically with idempotency keys; unknown driver throws + dispatcher stays silent; unconfigured driver skips SMS but still delivers WhatsApp; SMS/WhatsApp preference on/off matrix through the real `NotificationService`; missing/invalid phone skips; unmapped + admin categories excluded; phone normalization table; per-channel job queuing (2 pushes, rows queued); DB + delivery row coexistence; rollback atomicity; checkout independence under provider failure; success/failure row recording; retry-then-succeed; repeat-processing idempotency; bounded tries/backoff; no arbitrary-send endpoints; cross-user isolation; log secret scan; delivery/payload sensitive-data scan + SMS length cap.
+- Full suite: `304 passed (1489 assertions)` — 279 pre-existing + 25 new, zero failures.
+- Frontend: `npm run build` ✅ (output identical to Phase 10: `index.html` 2,004.50 kB — no UI changes).
+- `vendor/bin/pint --dirty --format agent` ✅ clean.
+
+#### Environment / configuration
+- `SMS_DRIVER=mock`, `WHATSAPP_DRIVER=mock` (defaults in `config/messaging.php` + `.env.example`). `queue:work` must run for async sends (same worker as notifications). No secrets committed; mock needs none.
+
+#### Deferred real-provider integration (why + what it takes)
+- Deferred because no vendor is selected — integrating one now would mean inventing credentials and an untestable live path. When the client chooses: implement `MessageGateway` (HTTP with timeouts, map provider errors to `MessageGatewayException` codes, honor `idempotency_key`), register `messaging.drivers.{name}.{channel}_class`, set `SMS_DRIVER`/`WHATSAPP_DRIVER`, optionally add a DLR webhook route that flips `sent` → `delivered`. Provider must support idempotent sends keyed by our `message_key` (documented requirement for the retry design).
+
+#### Remaining limitations
+- No delivery-status webhooks (`delivered` never set); no admin delivery UI; no per-message cost tracking; bodies live only in job payloads (lost if the jobs table is purged before execution); SMS is single-segment truncated (multi-part concatenation is a provider concern); E.164 validation is syntactic, not a live lookup.
+
 ## Frontend Architecture
 
 The frontend is a React SPA with route-level lazy loading.
@@ -1664,6 +1724,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 74 | Phase 9 test coverage | ✅ | `Phase9ReliabilityTest`, 23 tests; suite total 254 passed (1203 assertions) |
 | 75 | Notification preferences + real-time | ✅ | preference schema/API, channel filtering, Reverb/Echo private channels, Account preferences tab; see Phase 10 section |
 | 76 | Phase 10 test coverage | ✅ | `Phase10NotificationRealtimeTest`, 25 tests; suite total 279 passed (1386 assertions) |
+| 77 | SMS/WhatsApp delivery foundation | ✅ | provider-neutral gateways, delivery table, queued idempotent jobs, mock drivers only — no vendor selected; see Phase 11 section |
+| 78 | Phase 11 test coverage | ✅ | `Phase11MessagingDeliveryTest`, 25 tests; suite total 304 passed (1489 assertions) |
 
 Legend:
 

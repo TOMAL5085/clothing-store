@@ -11,10 +11,13 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Str;
 
 abstract class OrderNotification extends Notification implements ShouldQueue
 {
     use Queueable;
+
+    public string $messagingUuid;
 
     public function __construct(
         public Order $order,
@@ -22,7 +25,21 @@ abstract class OrderNotification extends Notification implements ShouldQueue
         protected string $message,
         protected string $category,
         protected ?string $actionUrl = null,
-    ) {}
+    ) {
+        // Stable identity for outbound messaging idempotency: retries of the
+        // same notification instance reuse one delivery row per channel.
+        $this->messagingUuid = (string) Str::uuid();
+    }
+
+    /**
+     * Category key shared with notification preferences and the messaging
+     * category map. Public so the messaging subsystem can read it without
+     * touching delivery internals.
+     */
+    public function messagingCategory(): string
+    {
+        return $this->category;
+    }
 
     public function via(object $notifiable): array
     {
