@@ -13,7 +13,7 @@ abstract class OrderNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        protected Order $order,
+        public Order $order,
         protected string $title,
         protected string $message,
         protected string $category,
@@ -32,7 +32,7 @@ abstract class OrderNotification extends Notification implements ShouldQueue
             ->greeting("Hello {$notifiable->name},")
             ->line($this->message)
             ->line("Order Number: {$this->order->number}")
-            ->line("Order Total: {$this->order->currency} " . number_format((float) $this->order->total, 2));
+            ->line("Order Total: {$this->order->currency} ".number_format((float) $this->order->total, 2));
 
         if ($this->actionUrl) {
             $mail->action('View Order', $this->actionUrl);

@@ -13,9 +13,9 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `39 passed`, `210 assertions`.
+- Current backend test result: ✅ `131 passed`, `606 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
-- Git status: ⚠️ no Git repository was detected at the project root during this handoff.
+- Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
 
@@ -166,12 +166,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":96,"passed":96,"assertions":412,"duration_ms":18799}
+{"tool":"phpunit","result":"passed","tests":131,"passed":131,"assertions":606,"duration_ms":29885}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), and Phase 4B-4 (`Phase4ResolutionTest`).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), and Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests).
 
 ## Git State
 
@@ -179,29 +179,10 @@ Command run from project root:
 
 ```bash
 git status --short --branch
+git log --oneline -3
 ```
 
-Result:
-
-```text
-## main...origin/main
- M CONTEXT.md
- M backend/app/Models/Shipment.php
- M backend/app/Providers/AppServiceProvider.php
- M backend/app/Services/ShippingService.php
- M backend/app/Http/Resources/OrderResource.php
- M backend/app/Http/Resources/ShipmentResource.php
-A backend/app/Services/Couriers/CourierGateway.php
-A backend/app/Services/Couriers/CourierService.php
-A backend/app/Services/Couriers/MockCourierGateway.php
-A backend/config/couriers.php
-A backend/database/migrations/2026_09_20_085927_add_carrier_reference_to_shipments_table.php
-A backend/database/factories/ShipmentFactory.php
-A backend/tests/Feature/Phase4B3CourierFoundationTest.php
-A backend/tests/Feature/Phase4B3CourierShipmentCreationTest.php
-```
-
-Status: ✅ Git repository detected at `C:\Users\User\Desktop\clothing-store`. Current branch: `main`. Last commit: `34a39da` "Complete Phase 4B-3A courier foundation".
+Status: ✅ Git repository detected at `C:\Users\User\Desktop\clothing-store`. Current branch: `main`, tracking `origin/main`. The Phase 5 correction work is committed as `Fix Phase 5 notification triggers and tests` and pushed; the working tree is clean.
 
 ## Completed Phases
 
@@ -575,6 +556,166 @@ Implemented complete cancellation, return, and refund lifecycle with proper auth
   - `cancellation.allowed_order_statuses`: ['pending', 'confirmed', 'processing']
   - `cancellation.blocked_shipment_statuses`: ['shipped', 'in_transit', 'out_for_delivery', 'delivered']
   - `returns.allowed_order_statuses`: ['delivered']
+
+### Phase 5 - Order Alerts / Notification System
+
+**Status: ✅ Complete**
+
+Implemented a comprehensive notification system using Laravel's native notification architecture with database and email channels.
+
+#### Database Migration
+- `2026_09_21_143406_create_notifications_table.php`: Laravel standard notifications table with UUID primary key, polymorphic `notifiable` relationship, JSON `data` column, `read_at` timestamp
+
+#### Notification Architecture
+- **Base classes** (2 files): `OrderNotification` (customer), `AdminOrderNotification` (admin) - both queueable via `ShouldQueue`
+- **File counts**: 25 notification files total = 23 concrete + 2 base = 17 customer concrete + 6 admin concrete + 2 base
+- **Customer notifications** (17 types):
+  - Order: `OrderPlacedNotification`, `OrderPaidNotification`, `OrderPaymentFailedNotification`, `OrderStatusChangedNotification`
+  - Shipment: `ShipmentStatusChangedNotification`
+  - Cancellation: `CancellationRequestedNotification`, `CancellationApprovedNotification`, `CancellationRejectedNotification`, `CancellationCompletedNotification`
+  - Returns: `ReturnRequestedNotification`, `ReturnApprovedNotification`, `ReturnRejectedNotification`, `ReturnReceivedNotification`
+  - Refunds: `RefundCreatedNotification`, `RefundProcessingNotification`, `RefundCompletedNotification`, `RefundFailedNotification`
+- **Admin notifications** (6 types):
+  - `AdminNewOrderNotification`, `AdminOrderPaidNotification`, `AdminCancellationRequestNotification`, `AdminReturnRequestNotification`, `AdminRefundActionRequiredNotification`, `AdminShipmentProblemNotification`
+- All notifications include structured data: type, title, message, category, order_id, order_number, action_url, and admin-specific fields (customer_name, customer_email)
+- Guest orders are safe: admin notifications render `customer_name` as `Guest` and `customer_email` as `N/A`, and `$order` is a public property on both base classes.
+
+#### Deep links and payload hygiene
+- `action_url` for customer order notifications appends `checkout_token` (for example `/order/success/{number}?checkout_token=...`). This is an intentional owner-facing deep link used by the public order confirmation lookup endpoint, not a stored credential. Do not assert that the literal string `token` is absent from notification payloads.
+- Notification payloads never contain passwords, card numbers, CVV/CVC values, provider secrets, or auth tokens. This is covered by `test_no_sensitive_data_in_notification_payloads`.
+
+#### Service Layer
+- `NotificationService`: Centralized notification triggering with:
+  - Duplicate prevention via `DB::afterCommit` callbacks
+  - Null-safe user checks (handles guest orders)
+  - Error logging without breaking main flow
+  - Admin notification broadcasting to all active admins
+- Integrated into existing services:
+  - `CheckoutService::placeOrder()`: `orderPlaced` dispatched through `DB::afterCommit` after the order/payment rows are written. This was the missing trigger — without it, no order-placed notification was ever produced by a real checkout.
+  - `OrderFulfillmentService`: paid, failed (`markPaid`/`markFailed`, both idempotent and already called from demo checkout, Stripe webhook and SSLCOMMERZ IPN)
+  - `OrderResolutionService`: cancellation request/approved/rejected/completed, return requested/approved/rejected/received, refund created/processing/completed/failed
+  - `ShippingService`: shipment status changes and courier synchronization
+- Notifications fire only after the surrounding database transaction commits. A checkout that fails inside its transaction (for example an inventory revalidation failure) rolls back and sends nothing.
+
+#### Admin query fix
+- `notifications.data` is a `text` column, so PostgreSQL rejects `data->>'category'` on it. `AdminNotificationController` now casts before extracting: `whereRaw("(data::json->>'category') like ?", ['admin\_%'])`, exposed as the `ADMIN_CATEGORY_PATTERN` / `ADMIN_CATEGORY_BINDING` constants and applied consistently to `index`, `unreadCount`, `markAsRead`, and `markAllAsRead`.
+- `markAllAsRead` reads through the `unreadNotifications()` relation (queryable) rather than the resolved collection property, so the filter applies before `markAsRead()`.
+
+#### API Endpoints
+
+**Customer Routes (auth:sanctum):**
+- `GET /api/v1/notifications` - Paginated list
+- `GET /api/v1/notifications/unread-count` - Unread count
+- `POST /api/v1/notifications/{id}/read` - Mark as read
+- `POST /api/v1/notifications/mark-all-read` - Mark all as read
+
+**Admin Routes (auth:sanctum + admin):**
+- `GET /api/v1/admin/notifications` - Paginated list (admin-only categories)
+- `GET /api/v1/admin/notifications/unread-count` - Unread count
+- `POST /api/v1/admin/notifications/{id}/read` - Mark as read
+- `POST /api/v1/admin/notifications/mark-all-read` - Mark all as read
+
+#### Frontend Integration
+- **Notification Store** (`frontend/src/store/notificationStore.ts`): Customer and admin Zustand stores with fetch, unread count, mark as read, mark all as read
+- **Header Bell Icon**: Shows unread badge, links to `/notifications`
+- **Notifications Page** (`/notifications`): Full notification list with:
+  - Category icons and labels
+  - Read/unread visual distinction
+  - Click to mark as read and navigate to order
+  - Mark all as read button
+  - Infinite scroll pagination
+  - Order number display
+  - Relative timestamps
+
+#### Email Notifications
+- All notifications implement `toMail()` with:
+  - Customer name greeting
+  - Order number and total
+  - Action button linking to order
+  - Brand-consistent styling
+- Queueable via `ShouldQueue` interface
+- No hardcoded credentials - uses existing mail config
+- Test environment uses log/sync drivers
+
+#### Duplicate Prevention and Idempotency
+- All notifications are triggered inside `DB::afterCommit` callbacks, so they are transaction-safe: committed work notifies, rolled-back work notifies nothing.
+- There is deliberately **no** database unique constraint on notification payload and no JSON hash column. Duplicate prevention lives at the lifecycle/idempotency layer instead:
+  - Payment: `StripeWebhookController` skips already-processed provider events (`provider_event_id` match or an already-`paid` payment for a paid-type event), and `OrderFulfillmentService::markPaid()` has its own paid guard. Stock is decremented once, and paid notifications fire once, however many webhooks arrive.
+  - Courier sync: `ShippingService::syncShipmentStatus()` returns early when the mapped external status equals the shipment's current status, so repeated syncs create no extra `ShipmentEvent` and no extra notification.
+  - Shipment/order status: `ShippingService::updateShipment()` only emits events/notifications when the status actually changes, and `NotificationService` additionally guards `$oldStatus === $newStatus`.
+- Coverage for these three cases is in `Phase5NotificationTest` (`test_duplicate_payment_webhook_sends_paid_notifications_once`, `test_courier_sync_is_idempotent_for_notifications`, `test_identical_shipment_status_update_does_not_duplicate_notification`), each driven through real application flows (HTTP checkout + signed webhooks, `ShippingService` with a bound `CourierGateway` stub).
+
+#### Authorization
+- Customer notifications: Polymorphic `notifiable` relationship ensures users only see their own
+- Admin notifications: Filtered by category prefix `admin_` + admin middleware
+- API endpoints protected by `auth:sanctum` + admin policy
+
+#### Tests
+- Dedicated feature suite: `backend/tests/Feature/Phase5NotificationTest.php` — **35 tests, 606 assertions across the whole suite**.
+- Every notification test drives a real application flow (HTTP routes, `CheckoutService`, `OrderFulfillmentService`, `ShippingService`, `OrderResolutionService`, signature-verified Stripe webhooks); none simply instantiate a notification class or call `NotificationService` directly.
+- Coverage:
+  - End-to-end demo checkout: customer + admin notified; guest checkout notifies admins only
+  - Failed checkout (in-transaction stock failure) → rollback → `Notification::assertNothingSent()`
+  - Stripe webhook: paid notifications once; duplicate/second provider event does not duplicate notifications, orders or stock decrements; `payment_intent.payment_failed` notifies the customer without paid notifications
+  - Shipment: normal transition notifies the customer only; `failed_delivery` raises the admin alert; courier sync and identical status updates are idempotent
+  - Cancellation, return and refund lifecycles through the real customer/admin endpoints
+  - Refund pending on a real provider (`payment_provider = 'stripe'`) raises `AdminRefundActionRequiredNotification`; the demo provider does not
+  - Customer API: list, pagination (`?per_page=1`, `meta.total`), unread count, mark one, mark all
+  - Admin API: list/unread count/mark one/mark all, all filtered to `admin_%` categories only
+  - Authorization: unauthenticated 401, customer denied admin endpoints 403, cross-customer read 404
+  - Database row persistence (UUID id, `notifiable_type`, `type`, payload key order, `read_at`)
+  - Email versions carry the order number/greeting, are `ShouldQueue`, and use the `mail` channel
+  - No card/CVV/CVC/secret/password material in customer or admin payloads
+- Full suite result: `131 passed (606 assertions)`; no regressions in Phase 1-4 functionality.
+
+#### Configuration
+- No new required environment variables
+- Uses existing `MAIL_*` configuration
+- Queue driver: uses existing queue config (sync for testing, database/redis for production)
+- `APP_FRONTEND_URL` / `config('app.frontend_url')` for action links
+
+#### Files Changed
+
+**Backend (New):**
+- `backend/app/Notifications/` (25 files: 23 concrete + 2 base)
+- `backend/app/Services/NotificationService.php`
+- `backend/app/Http/Controllers/Api/V1/Notifications/NotificationController.php`
+- `backend/app/Http/Controllers/Api/V1/Notifications/AdminNotificationController.php`
+- `backend/app/Http/Resources/NotificationResource.php`
+- `backend/database/migrations/2026_09_21_143406_create_notifications_table.php`
+- `backend/tests/Feature/Phase5NotificationTest.php` (35 feature tests)
+
+**Backend (Modified):**
+- `backend/app/Providers/AppServiceProvider.php` (NotificationService binding)
+- `backend/app/Services/CheckoutService.php` (order-placed trigger via `DB::afterCommit`)
+- `backend/app/Services/OrderFulfillmentService.php` (paid/failed notifications)
+- `backend/app/Services/OrderResolutionService.php` (notifications integration)
+- `backend/app/Services/ShippingService.php` (notifications integration)
+- `backend/app/Http/Controllers/Api/V1/Notifications/AdminNotificationController.php` (admin category filter)
+- `backend/app/Notifications/AdminNewOrderNotification.php`, `AdminOrderNotification.php`, `AdminShipmentProblemNotification.php`, `OrderNotification.php` (guest-order safety, public `$order`, string interpolation fix)
+- `backend/routes/api.php` (notification endpoints)
+
+**Frontend (New):**
+- `frontend/src/store/notificationStore.ts`
+- `frontend/src/pages/NotificationsPage.tsx`
+
+**Frontend (Modified):**
+- `frontend/src/App.tsx` (notifications route)
+- `frontend/src/components/layout/Header.tsx` (bell icon + unread badge)
+- `frontend/src/utils/cn.ts` (formatDate utility)
+
+#### Test Results
+- Backend: `131 passed (606 assertions)` (96 tests before Phase 5 coverage was added, +35 in `Phase5NotificationTest`)
+- Frontend: `npm run build` ✅ successful
+
+#### Intentionally Deferred (Future Roadmap)
+- SMS/WhatsApp provider integrations (Phase 20/21)
+- Real-time WebSocket/Laravel Reverb broadcasting
+- Browser push notifications
+- Marketing/promotional notifications
+- Notification preferences per user
+- Rich notification actions (buttons in email)
+- In-app notification center with filtering/search
 
 ## Frontend Architecture
 
@@ -1095,6 +1236,10 @@ Feature tests currently cover:
 - SSLCOMMERZ IPN validation
 - admin order listing/filters/status updates
 - customer denial of admin/gateway-adjacent routes
+- notification dispatch on real checkout, webhooks, shipment and resolution flows
+- notification idempotency (duplicate payment event, repeated courier sync, identical status update)
+- customer and admin notification endpoints, pagination, and authorization
+- notification database persistence, email construction, and payload hygiene
 
 When adding backend behavior, add or update feature tests first/alongside the implementation.
 
@@ -1171,6 +1316,11 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 58 | Return workflow | ✅ | Customer requests returns for delivered items, admin approves/rejects/marks received, refund creation; quantity validation; duplicate prevention |
 | 59 | Refund management | ✅ | Admin manages refunds (processing/succeeded/failed/canceled); provider-aware; idempotent; prevents over-refund; tracks refund state separately |
 | 60 | Courier cancellation on order cancel | ✅ | When order is cancelled, existing courier shipment is cancelled via CourierGateway->cancelShipment() |
+| 61 | Notification architecture | ✅ | 25 files = 23 concrete (17 customer + 6 admin) + 2 base classes |
+| 62 | Order-placed trigger | ✅ | `CheckoutService::placeOrder()` dispatches via `DB::afterCommit`; failed checkout notifies nothing |
+| 63 | Admin notification API | ✅ | category filter `admin_%` on a `text` data column (`data::json->>'category'`) applied to all four endpoints |
+| 64 | Customer notification API | ✅ | list/pagination, unread count, mark one, mark all, owner-scoped |
+| 65 | Phase 5 test coverage | ✅ | `Phase5NotificationTest`, 35 feature tests through real flows; suite total 131 passed (606 assertions) |
 
 Legend:
 

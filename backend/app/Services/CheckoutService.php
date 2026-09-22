@@ -5,10 +5,9 @@ namespace App\Services;
 use App\Models\Address;
 use App\Models\Cart;
 use App\Models\Order;
-use App\Models\Payment;
 use App\Models\User;
-use App\Services\Payments\StripeGateway;
 use App\Services\Payments\SslCommerzGateway;
+use App\Services\Payments\StripeGateway;
 use App\Support\CountryResolver;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +22,7 @@ class CheckoutService
         private readonly OrderFulfillmentService $fulfillment,
         private readonly StripeGateway $stripe,
         private readonly SslCommerzGateway $sslcommerz,
+        private readonly NotificationService $notifications,
     ) {}
 
     /**
@@ -154,6 +154,11 @@ class CheckoutService
                 $redirect = $initiation['redirect_url'];
                 $clientSecret = $initiation['client_secret'];
             }
+
+            // Send order placed notifications after transaction commits
+            DB::afterCommit(function () use ($order) {
+                $this->notifications->orderPlaced($order->fresh(['items', 'shippingAddress', 'billingAddress', 'payment', 'user']));
+            });
 
             return [
                 'order' => $order->fresh(['items', 'shippingAddress', 'billingAddress', 'payment']),
