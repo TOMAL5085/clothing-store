@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Services\Marketing\MarketingEventService;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,7 @@ class OrderFulfillmentService
 {
     public function __construct(
         private readonly NotificationService $notifications,
+        private readonly MarketingEventService $marketing,
     ) {}
 
     public function holdInventory(Order $order): void
@@ -93,6 +95,13 @@ class OrderFulfillmentService
         DB::afterCommit(function () use ($order, $oldStatus) {
             $this->notifications->orderPaid($order, $oldStatus);
         });
+
+        // Authoritative purchase conversion, recorded exactly once per
+        // order. The deterministic event_id dedupes webhook repeats,
+        // worker retries, and confirmation refreshes.
+        DB::afterCommit(function () use ($order) {
+            $this->marketing->recordPurchase($order);
+        });
     }
 
     public function markFailed(Order $order, Payment $payment, string $reason, string $status = 'failed'): void
@@ -113,6 +122,7 @@ class OrderFulfillmentService
 
         DB::afterCommit(function () use ($order, $reason) {
             $this->notifications->orderPaymentFailed($order, $reason);
+            $this->marketing->recordPaymentFailed($order);
         });
     }
 

@@ -5,6 +5,7 @@ import { Badge, Price } from "@/components/ui/primitives";
 import { Rating } from "@/components/product/Rating";
 import { useCartStore } from "@/store/cartStore";
 import { useUiStore } from "@/store/uiStore";
+import { trackAddToCart } from "@/lib/marketing";
 import { cn } from "@/utils/cn";
 
 export function ProductCard({ product, priority }: { product: Product; priority?: boolean }) {
@@ -21,6 +22,7 @@ export function ProductCard({ product, priority }: { product: Product; priority?
 
     try {
       await addItem(product.id, defaultSize, 1, product.colors[0]?.name);
+      trackAddToCart({ productId: product.id, slug: product.slug, quantity: 1 });
       pushToast(`${product.name} added to bag`);
       setMiniCartOpen(true);
     } catch (error) {

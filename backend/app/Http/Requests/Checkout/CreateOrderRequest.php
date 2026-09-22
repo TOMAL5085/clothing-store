@@ -45,6 +45,7 @@ class CreateOrderRequest extends FormRequest
             'payment.card_number' => [$demo ? 'required' : 'nullable', 'string'],
             'payment.expiry' => [$demo ? 'required' : 'nullable', 'regex:/^(0[1-9]|1[0-2])\/\d{2}$/'],
             'payment.cvc' => [$demo ? 'required' : 'nullable', 'regex:/^\d{3,4}$/'],
+            'anonymous_id' => ['nullable', 'string', 'max:64'],
         ];
     }
 

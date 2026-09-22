@@ -134,6 +134,7 @@ import { Footer } from "@/components/layout/Footer";
 import { MiniCartDrawer } from "@/components/cart/MiniCartDrawer";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
+import { ConsentBanner } from "@/components/ConsentBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Logo } from "@/components/brand/Logo";
 import { Spinner } from "@/components/ui/primitives";
@@ -142,6 +143,7 @@ import { useUiStore } from "@/store/uiStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
+import { trackPageView } from "@/lib/marketing";
 import { cn } from "@/utils/cn";
 
 /* Route-level code splitting with React.lazy + Suspense (Part 4 §93) */
@@ -181,6 +183,14 @@ function ScrollToTop() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [pathname]);
+  return null;
+}
+
+function RouteTracker() {
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    trackPageView(`${pathname}${search}`);
+  }, [pathname, search]);
   return null;
 }
 
@@ -234,6 +244,7 @@ export default function App() {
     <BrowserRouter>
       <ErrorBoundary>
         <ScrollToTop />
+        <RouteTracker />
         <a
           href="#main"
           className="sr-only z-[70] focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-ink focus:px-4 focus:py-2 focus:text-xs focus:font-bold focus:text-paper dark:focus:bg-linen dark:focus:text-nox"
@@ -298,6 +309,7 @@ export default function App() {
         <MiniCartDrawer />
         <SearchOverlay />
         <Toasts />
+        <ConsentBanner />
       </ErrorBoundary>
     </BrowserRouter>
   );

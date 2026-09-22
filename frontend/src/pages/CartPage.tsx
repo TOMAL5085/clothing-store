@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Lock, ShoppingBag, Tag } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
@@ -6,6 +6,7 @@ import { useCurrencyStore } from "@/store/currencyStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { Button, EmptyState, LinkButton, Price, QuantityStepper, Input } from "@/components/ui/primitives";
 import { usePageTitle } from "@/utils/usePageTitle";
+import { trackRemoveFromCart, trackViewCart } from "@/lib/marketing";
 
 export const FREE_SHIPPING_THRESHOLD = 200;
 export const STANDARD_SHIPPING = 9.95;
@@ -34,6 +35,14 @@ export default function CartPage() {
   useEffect(() => {
     void loadCart();
   }, [loadCart]);
+
+  const cartViewed = useRef(false);
+  useEffect(() => {
+    if (!cartViewed.current && count > 0) {
+      cartViewed.current = true;
+      trackViewCart(count);
+    }
+  }, [count]);
 
   const applyPromo = async () => {
     try {
@@ -110,7 +119,16 @@ export default function CartPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => void removeItem(line.id)}
+                      onClick={() => {
+                        const entry = lines.find((candidate) => candidate.line.id === line.id);
+                        void removeItem(line.id).then(() => {
+                          trackRemoveFromCart({
+                            productId: line.productId,
+                            slug: entry?.product?.slug ?? line.productSlug,
+                            quantity: line.qty,
+                          });
+                        });
+                      }}
                       aria-label={`Remove ${name} from bag`}
                       className="text-[11px] font-bold tracking-[0.14em] uppercase text-smoke underline-offset-4 transition-colors hover:text-red-700 hover:underline dark:text-linen-dim"
                     >

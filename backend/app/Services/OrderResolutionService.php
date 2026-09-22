@@ -8,6 +8,7 @@ use App\Models\Refund;
 use App\Models\ReturnRequest;
 use App\Models\User;
 use App\Services\Couriers\CourierService;
+use App\Services\Marketing\MarketingEventService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -17,6 +18,7 @@ class OrderResolutionService
         private readonly OrderFulfillmentService $fulfillment,
         private readonly CourierService $courierService,
         private readonly NotificationService $notifications,
+        private readonly MarketingEventService $marketing,
     ) {}
 
     public function createCancellationRequest(Order $order, User $user, string $reason): CancellationRequest
@@ -109,7 +111,7 @@ class OrderResolutionService
             }
 
             $normalized[$orderItemId] = ($normalized[$orderItemId] ?? 0) + $quantity;
-            if ($normalized[$orderItemId] + $alreadyRequested > $orderItem->quantity) {
+            if ($orderItem->quantity < $normalized[$orderItemId] + $alreadyRequested) {
                 throw ValidationException::withMessages(['items' => "Return quantity for {$orderItem->product_name} exceeds the purchased quantity."]);
             }
         }
@@ -246,6 +248,11 @@ class OrderResolutionService
                     'failed' => $this->notifications->refundFailed($updated->order, $updated),
                     default => null,
                 };
+
+                // Authoritative refund conversion, recorded exactly once.
+                if ($updated->status === 'succeeded') {
+                    $this->marketing->recordRefundCompleted($updated->fresh(['order']));
+                }
             }
         });
 
@@ -283,6 +290,9 @@ class OrderResolutionService
 
         DB::afterCommit(function () use ($request) {
             $this->notifications->cancellationCompleted($request->order, $request->fresh());
+
+            // Authoritative cancellation conversion, recorded exactly once.
+            $this->marketing->recordOrderCancelled($request->fresh(['order']));
         });
     }
 

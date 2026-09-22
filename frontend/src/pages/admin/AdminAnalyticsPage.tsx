@@ -98,6 +98,16 @@ interface ReviewsData {
   reviewed_products: number;
 }
 
+interface FunnelData {
+  product_views: number;
+  add_to_carts: number;
+  begin_checkouts: number;
+  purchases: number;
+  view_to_cart_rate: number;
+  cart_to_purchase_rate: number;
+  attributed_revenue: Array<{ source: string; medium: string; campaign: string; conversions: number; revenue: number }>;
+}
+
 interface WishlistData {
   total_items: number;
   wishlists_with_account: number;
@@ -247,6 +257,7 @@ export default function AdminAnalyticsPage() {
   const [inventory, setInventory] = useState<InventoryData | null>(null);
   const [reviews, setReviews] = useState<ReviewsData | null>(null);
   const [wishlist, setWishlist] = useState<WishlistData | null>(null);
+  const [funnel, setFunnel] = useState<FunnelData | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ preset });
@@ -278,9 +289,10 @@ export default function AdminAnalyticsPage() {
       api<{ data: InventoryData }>(`/admin/analytics/inventory?limit=20`),
       api<{ data: ReviewsData }>(`/admin/analytics/reviews`),
       api<{ data: WishlistData }>(`/admin/analytics/wishlist?limit=10`),
+      api<{ data: FunnelData }>(`/admin/analytics/marketing?${query}`),
     ]).then((results) => {
       if (cancelled) return;
-      const [overviewRes, salesRes, ordersRes, productsRes, categoriesRes, inventoryRes, reviewsRes, wishlistRes] = results;
+      const [overviewRes, salesRes, ordersRes, productsRes, categoriesRes, inventoryRes, reviewsRes, wishlistRes, funnelRes] = results;
       if (overviewRes.status === "rejected") {
         setError(overviewRes.reason instanceof Error ? overviewRes.reason.message : "Analytics could not be loaded.");
       } else {
@@ -293,6 +305,7 @@ export default function AdminAnalyticsPage() {
       if (inventoryRes.status === "fulfilled") setInventory(inventoryRes.value.data);
       if (reviewsRes.status === "fulfilled") setReviews(reviewsRes.value.data);
       if (wishlistRes.status === "fulfilled") setWishlist(wishlistRes.value.data);
+      if (funnelRes.status === "fulfilled") setFunnel(funnelRes.value.data);
       setLoading(false);
     });
     return () => {
@@ -563,6 +576,34 @@ export default function AdminAnalyticsPage() {
               )}
             </SectionCard>
           </div>
+
+          <SectionCard title="Marketing funnel" hint="First-party tracked events — behavioral measurement, not financial record">
+            {funnel ? (
+              <div>
+                <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                  <div className="border border-line p-3 dark:border-line-dark"><dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-smoke dark:text-linen-dim">Product views</dt><dd className="mt-1 font-display text-2xl text-ink dark:text-linen">{funnel.product_views}</dd></div>
+                  <div className="border border-line p-3 dark:border-line-dark"><dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-smoke dark:text-linen-dim">Add to carts</dt><dd className="mt-1 font-display text-2xl text-ink dark:text-linen">{funnel.add_to_carts}</dd></div>
+                  <div className="border border-line p-3 dark:border-line-dark"><dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-smoke dark:text-linen-dim">Checkouts</dt><dd className="mt-1 font-display text-2xl text-ink dark:text-linen">{funnel.begin_checkouts}</dd></div>
+                  <div className="border border-line p-3 dark:border-line-dark"><dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-smoke dark:text-linen-dim">Purchases</dt><dd className="mt-1 font-display text-2xl text-ink dark:text-linen">{funnel.purchases}</dd></div>
+                </dl>
+                <p className="mt-3 text-xs text-smoke dark:text-linen-dim">
+                  View → cart {funnel.view_to_cart_rate}% · Cart → purchase {funnel.cart_to_purchase_rate}%
+                </p>
+                {funnel.attributed_revenue.length > 0 && (
+                  <ul className="mt-4 space-y-2">
+                    {funnel.attributed_revenue.slice(0, 5).map((item) => (
+                      <li key={`${item.source}|${item.medium}|${item.campaign}`} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="font-semibold text-ink dark:text-linen">{item.source} / {item.medium} / {item.campaign}</span>
+                        <span className="shrink-0 text-smoke dark:text-linen-dim">{item.conversions} orders · <strong className="text-ink dark:text-linen">{format(item.revenue)}</strong></span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <EmptyState icon={BarChart3} title="Unavailable" body="Funnel metrics could not be loaded." />
+            )}
+          </SectionCard>
         </div>
       )}
     </div>

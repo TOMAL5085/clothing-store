@@ -107,4 +107,13 @@ class AnalyticsController extends Controller
 
         return response()->json(['data' => $analytics->wishlistMetrics((int) ($validated['limit'] ?? 10))]);
     }
+
+    public function marketing(AnalyticsRequest $request, AnalyticsService $analytics)
+    {
+        Gate::authorize('viewAny', Order::class);
+
+        $range = AnalyticsRange::fromInput($request->rangeInput());
+
+        return response()->json(['data' => $analytics->marketingFunnel($range)]);
+    }
 }

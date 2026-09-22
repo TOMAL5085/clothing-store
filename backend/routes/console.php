@@ -17,3 +17,8 @@ Schedule::command('queue:prune-failed --hours=720')
     ->monthly()
     ->timezone(config('app.timezone'))
     ->withoutOverlapping();
+
+Schedule::command('marketing:prune')
+    ->weekly()
+    ->timezone(config('app.timezone'))
+    ->withoutOverlapping();

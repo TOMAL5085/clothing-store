@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SearchX, SlidersHorizontal, X } from "lucide-react";
 import type { Category, Product } from "@/data/products";
@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/product/ProductCard";
 import { ProductCardSkeleton, EmptyState } from "@/components/ui/primitives";
 import { FiltersPanel, EMPTY_FILTERS, activeFilterCount, type ShopFilters } from "@/components/shop/FiltersPanel";
 import { usePageTitle } from "@/utils/usePageTitle";
+import { trackSearch } from "@/lib/marketing";
 import { cn } from "@/utils/cn";
 
 const SORTS = [
@@ -41,6 +42,7 @@ export default function ShopPage() {
   const [loadError, setLoadError] = useState("");
   const listProducts = useCatalogStore((s) => s.listProducts);
   const page = Number(params.get("page") ?? "1");
+  const lastTrackedQuery = useRef("");
 
   const heading = query
     ? `Search: “${query}”`
@@ -70,6 +72,10 @@ export default function ShopPage() {
         if (!alive) return;
         setResults(response.data);
         setMeta(response.meta ?? null);
+        if (query.trim() !== "" && query !== lastTrackedQuery.current) {
+          lastTrackedQuery.current = query;
+          trackSearch(query, response.meta?.total ?? response.data.length);
+        }
       })
       .catch(() => {
         if (!alive) return;

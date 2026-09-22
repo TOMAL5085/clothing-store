@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronRight, Heart, Package, RefreshCcw, ShoppingBag, TriangleAlert, X } from "lucide-react";
 import { useCatalogStore } from "@/store/catalogStore";
+import { trackAddToCart, trackProductView } from "@/lib/marketing";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Rating } from "@/components/product/Rating";
@@ -40,6 +41,11 @@ export default function ProductPage() {
 
   usePageTitle(product?.name ?? "Product not found", product?.description);
 
+  useEffect(() => {
+    if (!product) return;
+    trackProductView({ productId: product.id, slug: product.slug, category: product.category });
+  }, [product?.id]);
+
   if (!product) {
     return (
       <div className="mx-auto max-w-3xl">
@@ -66,6 +72,7 @@ export default function ProductPage() {
     setSizeError(false);
     try {
       await addItem(product.id, size, qty, color);
+      trackAddToCart({ productId: product.id, slug: product.slug, quantity: qty });
     pushToast(`${product.name} — added to bag`);
     setMiniCartOpen(true);
     } catch (error) {

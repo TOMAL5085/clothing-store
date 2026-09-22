@@ -10,6 +10,7 @@ import { useCurrencyStore } from "@/store/currencyStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { Button, EmptyState, Field, Input, Price } from "@/components/ui/primitives";
 import { NotificationPreferences } from "@/components/account/NotificationPreferences";
+import { MarketingConsentToggles } from "@/components/account/MarketingConsentToggles";
 import { usePageTitle } from "@/utils/usePageTitle";
 import { cn } from "@/utils/cn";
 
@@ -598,6 +599,7 @@ export default function AccountPage() {
             <span className="text-smoke dark:text-linen-dim">Currency</span>
             <span className="font-semibold text-ink dark:text-linen">{currency}</span>
           </div>
+          <MarketingConsentToggles />
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CreditCard, Info, Lock, ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
@@ -10,6 +10,7 @@ import { Button, EmptyState, Field, Input, Price, Select } from "@/components/ui
 import { usePageTitle } from "@/utils/usePageTitle";
 import { cn } from "@/utils/cn";
 import { api, ApiError } from "@/lib/api";
+import { getAnonymousId, trackBeginCheckout } from "@/lib/marketing";
 
 interface FormState extends OrderAddress {
   cardName: string;
@@ -119,6 +120,15 @@ export default function CheckoutPage() {
     if (user) void loadAddresses().catch(() => undefined);
   }, [loadAddresses, user]);
 
+  const checkoutCount = lines.reduce((sum, { line }) => sum + line.qty, 0);
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (!checkoutTracked.current && checkoutCount > 0) {
+      checkoutTracked.current = true;
+      trackBeginCheckout(checkoutCount);
+    }
+  }, [checkoutCount]);
+
   useEffect(() => {
     const country = addressId !== "new" ? addresses.find((entry) => entry.id === addressId)?.country : form.country;
     if (!country) return;
@@ -204,6 +214,7 @@ export default function CheckoutPage() {
         method: "POST",
         body: JSON.stringify({
           cart_token: localStorage.getItem("jaaj-cart-token"),
+          anonymous_id: getAnonymousId(),
           promo_code: promo,
           delivery_method: method,
           ...(addressId === "new" ? {} : { shipping_address_id: addressId }),

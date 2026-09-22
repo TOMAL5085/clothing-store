@@ -94,6 +94,7 @@ class CheckoutService
             $order = Order::create([
                 'number' => $this->nextOrderNumber(),
                 'user_id' => $user?->id,
+                'anonymous_id' => $this->anonymousId($payload['anonymous_id'] ?? null),
                 'cart_id' => $cart->id,
                 'shipping_address_id' => $shipping->id,
                 'billing_address_id' => $billing?->id,
@@ -181,6 +182,21 @@ class CheckoutService
     private function isDemo(): bool
     {
         return config('payments.driver', 'demo') === 'demo';
+    }
+
+    /**
+     * Accept the browser's anonymous measurement identity for attribution
+     * linking only. Malformed values are dropped, never stored.
+     */
+    private function anonymousId(mixed $value): ?string
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        $value = trim(mb_substr($value, 0, 64));
+
+        return preg_match('/^[A-Za-z0-9_\-]{1,64}$/', $value) ? $value : null;
     }
 
     private function assertPurchasable(Cart $cart): void

@@ -2,6 +2,7 @@
 
 namespace App\Services\Analytics;
 
+use App\Models\MarketingEvent;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -441,6 +442,63 @@ class AnalyticsService
             'wishlists_with_account' => Wishlist::query()->whereNotNull('user_id')->count(),
             'guest_wishlists' => Wishlist::query()->whereNull('user_id')->count(),
             'top_products' => $top,
+        ];
+    }
+
+    /**
+     * Conversion funnel from first-party tracked events. These are
+     * behavioral measurements only — financial reporting stays with the
+     * order-of-record metrics above and is never overridden by this data.
+     *
+     * @return array<string, mixed>
+     */
+    public function marketingFunnel(AnalyticsRange $range): array
+    {
+        $counts = MarketingEvent::query()
+            ->whereBetween('occurred_at', [$range->from, $range->to])
+            ->selectRaw('event_name, COUNT(*) as total')
+            ->groupBy('event_name')
+            ->pluck('total', 'event_name');
+
+        $get = fn (string $name): int => (int) ($counts[$name] ?? 0);
+
+        $productViews = $get('product_view');
+        $addToCarts = $get('add_to_cart');
+        $beginCheckouts = $get('begin_checkout');
+        $purchases = $get('purchase');
+
+        $attributed = MarketingEvent::query()
+            ->where('event_name', 'purchase')
+            ->whereBetween('occurred_at', [$range->from, $range->to])
+            ->whereNotNull('attribution_id')
+            ->join('marketing_attributions', 'marketing_attributions.id', '=', 'marketing_events.attribution_id')
+            ->selectRaw('COALESCE(marketing_attributions.source, \'direct\') as source')
+            ->selectRaw('COALESCE(marketing_attributions.medium, \'none\') as medium')
+            ->selectRaw('COALESCE(marketing_attributions.campaign, \'(none)\') as campaign')
+            ->selectRaw('COUNT(*) as conversions')
+            ->selectRaw('COALESCE(SUM(marketing_events.value), 0) as revenue')
+            ->groupBy('source', 'medium', 'campaign')
+            ->orderByDesc('revenue')
+            ->limit(20)
+            ->get()
+            ->map(fn ($row) => [
+                'source' => $row->source,
+                'medium' => $row->medium,
+                'campaign' => $row->campaign,
+                'conversions' => (int) $row->conversions,
+                'revenue' => round((float) $row->revenue, 2),
+            ])
+            ->all();
+
+        return [
+            'range' => $range->metadata(),
+            'product_views' => $productViews,
+            'add_to_carts' => $addToCarts,
+            'begin_checkouts' => $beginCheckouts,
+            'purchases' => $purchases,
+            'view_to_cart_rate' => $productViews > 0 ? round($addToCarts / $productViews * 100, 2) : 0.0,
+            'cart_to_purchase_rate' => $addToCarts > 0 ? round($purchases / $addToCarts * 100, 2) : 0.0,
+            'attributed_revenue' => $attributed,
         ];
     }
 }

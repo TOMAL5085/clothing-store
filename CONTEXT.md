@@ -13,7 +13,7 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `304 passed`, `1489 assertions`.
+- Current backend test result: ✅ `347 passed`, `1676 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
@@ -22,6 +22,7 @@ This project is an ecommerce website named `clothing-store`.
 - Phase 9 (production readiness & reliability) is implemented and tested (`Phase9ReliabilityTest`, 23 tests).
 - Phase 10 (notification preferences + real-time notifications) is implemented and tested (`Phase10NotificationRealtimeTest`, 25 tests).
 - Phase 11 (SMS/WhatsApp delivery foundation, mock drivers only, no vendor selected) is implemented and tested (`Phase11MessagingDeliveryTest`, 25 tests).
+- Phase 12 (server-side marketing & conversion tracking foundation, no vendor selected) is implemented and tested (`Phase12MarketingTrackingTest`, 43 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -173,12 +174,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":304,"passed":304,"assertions":1489,"duration_ms":107396}
+{"tool":"phpunit","result":"passed","tests":347,"passed":347,"assertions":1676,"duration_ms":124311}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests), and Phase 11 (`Phase11MessagingDeliveryTest`, 25 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests), and Phase 11 (`Phase11MessagingDeliveryTest`, 25 dedicated feature tests), and Phase 12 (`Phase12MarketingTrackingTest`, 43 dedicated feature tests).
 
 ## Git State
 
@@ -1104,6 +1105,90 @@ Provider-neutral foundation: when the client selects a vendor, work is limited t
 #### Remaining limitations
 - No delivery-status webhooks (`delivered` never set); no admin delivery UI; no per-message cost tracking; bodies live only in job payloads (lost if the jobs table is purged before execution); SMS is single-segment truncated (multi-part concatenation is a provider concern); E.164 validation is syntactic, not a live lookup.
 
+### Phase 12 - Server-Side Marketing & Conversion Tracking Foundation
+
+**Status: ✅ Complete**
+
+> No real marketing provider is configured or selected in Phase 12.
+> `MARKETING_PROVIDERS` defaults to `mock`. No external advertising
+> platform receives events, and none has been tested.
+
+Provider-neutral first-party measurement: the database is the source of truth for authoritative conversions; a mock sink proves the delivery path; a real vendor later means one adapter class plus credentials, never core rewrites.
+
+#### Audit findings (verified before changing anything)
+- **No marketing tracking existed**: no `utm_*`/click-ID handling, no pixels, no consent UI (one privacy-page sentence only), no event tables. Only payment `provider_event_id` (unrelated reconciliation field).
+- **Reused as-is**: `markPaid`/`markFailed`/`updateRefund`/`executeCancellation` afterCommit hooks, `DB` queue + `failed_jobs`, `SendOutboundMessage` job shape (tries 3, backoff 10/60/300) mirrored for `DeliverMarketingEvent`, `AnalyticsService`/`AnalyticsController`/`AnalyticsRequest` extension pattern, `marketing-events` rate-limiter family pattern, `audit:prune` scheduler pattern, `MarketingConsentToggles`-style account UI, `ApiError` handling, lazy routes.
+
+#### Event catalog (single source of truth)
+- `MarketingEventCatalog::EVENTS` (11 events): client-originated `page_view`, `product_view`, `search`, `add_to_cart`, `remove_from_cart`, `view_cart`, `begin_checkout`; server-originated `purchase` (conversion), `payment_failed`, `order_cancelled`, `refund_completed`. Each entry declares source, conversion flag, anonymous allowance, value validity, and the only permitted metadata keys. Nothing outside the catalog can be ingested.
+
+#### Server vs client authority
+- Browser reports behavior; server validates, normalizes, and owns identity (Sanctum user; client `user_id` stripped in `prepareForValidation`). The client is never authoritative for value, payment status, ownership, price, discount, shipping, tax, currency, stock, or totals.
+- `purchase` (+ `payment_failed`/`order_cancelled`/`refund_completed`) originate exclusively from the verified lifecycle (`markPaid`, `markFailed`, `updateRefund→succeeded`, cancellation execution), each inside the existing `afterCommit` blocks with deterministic IDs (`purchase:{order_id}` etc.), so webhook repeats, worker retries, and confirmation revisits cannot duplicate conversions. `OrderSuccessPage` only reads order data.
+
+#### Ingestion API
+- `POST /api/v1/marketing/events` (public, `throttle:marketing-events` 60/min + 600/hr, user-or-IP keyed): accepts only catalog names; rejects server-only names; `event_id` optional UUID (server mints when absent); identical `event_id` resubmission returns the original row (200) or 404 for a foreign identity; unknown metadata keys dropped; per-key normalization (query ≤200, path relative ≤500, counts bounded, currency ISO-4217, value rounded ≥0 only where allowed); identifier format checks; timestamps clamped (future→now, >30d rejected); product references must exist; oversized payloads trimmed by construction with a 4KB metadata guard; anonymous callers must present `anonymous_id`. Responses: 201 created / 200 duplicate / 202 consent-declined (`{accepted:false}`, nothing stored). No provider-send endpoints exist (404-tested).
+
+#### Attribution model
+- `marketing_attributions`: keyed by `user_id` when authenticated else `anonymous_id` (both unique); whitelisted `utm_*`, validated click IDs (`gclid/gbraid/wbraid/fbclid`), landing URL stripped to scheme+host+path+UTM-only query (no credentials/fragments/junk), referrer, first-touch snapshot columns + `first_seen_at`, last-touch columns + `last_seen_at`.
+- Semantics: login backfills `user_id` onto still-anonymous rows only — two users never merge; direct/param-less touches only refresh `last_seen_at` on existing rows, never create rows; cross-device attribution is NOT claimed (documented limitation). Purchase events link attribution by order `user_id`, else order `anonymous_id` (captured optionally at checkout into new nullable `orders.anonymous_id`).
+- Guest checkout attribution works end-to-end via the optional validated `anonymous_id` checkout field; payment routing untouched.
+
+#### Consent behavior
+- Unknown = denied (opt-in everywhere). Anonymous consent travels per event + localStorage (`jaaj-consent`); authenticated users persist `{analytics, marketing}` in new nullable `users.marketing_consent` (server wins over snapshots). Client rows store only with analytics granted; provider fan-out additionally requires marketing granted; server lifecycle rows always persist as `necessary` but never fan out without marketing consent. UI: dismissible first-visit banner (Accept all / Analytics only / Reject, non-blocking) + account Profile → Measurement toggles mirrored both ways. Production legal review for target jurisdictions is explicitly deferred, not decided.
+
+#### Event schema (data minimization)
+- `marketing_events`: `event_id` unique, name/source, nullable user/anonymous/session refs, order refs, `product_external_id` (no product FK — survives deletion), timestamps, currency/value (value only where catalog allows), `attribution_id` FK, `metadata` jsonb (allowlisted keys only), `consent_state`. No profiles, addresses, phones, passwords, payment data, carts, tokens, headers, or webhook payloads — secret-scanned in tests.
+
+#### Purchase/refund/cancellation semantics
+- Values come from persisted rows (`orders.total`, `refunds.amount`) with line items (`product_external_id`, slug, quantity, unit_price). `payment_failed` carries the order total as context. Duplicates impossible by deterministic IDs + `firstOrCreate` + lifecycle guards (re-finalization rejected).
+
+#### Provider abstraction + mock
+- `MarketingProvider` (`name()`, `supports()`, `send($event, ['event_id'])`) with `MarketingProviderException` (error code + retryable flag); `MarketingProviderResolver` over `marketing.providers` config (default `mock`, `null` disables); unknown names throw safely (fanout catches, checkout unaffected). `MockMarketingProvider`: zero I/O, deterministic `mock-evt-N` IDs, in-memory outbox with idempotency keys, `failOnce`/`failAlways` simulation lists, `reset()`.
+
+#### Queue / retry / idempotency
+- `DeliverMarketingEvent` (`tries=3`, `backoff=[10,60,300]`, mirroring messaging): reloads row+event, terminal-state early return, resolves provider by stored name (misconfiguration → failed row, no rethrow), increments attempts, sends with `event_id` idempotency key, records sent/failed states, rethrows transient failures, honors non-retryable via `failed()`. `unique(marketing_event_id, provider)` + `firstOrCreate` make redelivery safe. Ingestion never waits on providers; checkout/webhooks never depend on them.
+
+#### Delivery persistence
+- `marketing_event_deliveries`: event FK (cascade), provider, `queued/sent/failed`, attempts, provider event ID, timestamps, error codes. Only sanitized identifiers persisted.
+
+#### Rate limiting / retention / scheduler
+- `marketing-events` limiter (60/min, 600/hr, IP-or-user) tested to 429. `marketing:prune` (`MARKETING_EVENT_RETENTION_DAYS`, default 90): bounded chunk deletes of old events (deliveries cascade) + stale attributions; idempotent; scheduled weekly alongside existing jobs.
+
+#### Security / privacy safeguards
+- Sanctum-derived identity, foreign identities 404, no PII in URLs tracked (paths relative-only), secret scans over events/attributions/deliveries/logs, no raw headers persisted, masked logging with request IDs via Context, failed jobs observable.
+
+#### Frontend tracker
+- `src/lib/marketing.ts` (no new deps): UUID anonymous/session IDs, local consent + attribution capture (UTM/click IDs only), fire-and-forget POST via the existing API client, `lastPageView` dedupe. Central `RouteTracker` in `App.tsx` (excludes nothing — 404s tracked as page views deliberately? No: NotFoundPage route renders within Routes; pathname tracked as visited path — acceptable, documented as content-agnostic). Wired: product_view + add-to-cart (ProductPage/ProductCard/WishlistPage), search-on-query-change (ShopPage), view_cart + remove (CartPage), begin_checkout once (CheckoutPage). OrderSuccessPage intentionally emits nothing. App works with tracking disabled/unreachable; consent banner never blocks shopping.
+
+#### Admin analytics integration
+- New `GET /api/v1/admin/analytics/marketing` (existing range presets + gate): funnel counts, view→cart and cart→purchase rates, attributed revenue by source/medium/campaign (last-touch join, top 20). Rendered as a "Marketing funnel" card on the existing dashboard labeled behavioral-not-financial. Order/revenue analytics untouched and still authoritative.
+
+#### Files changed
+- New backend: migrations `000005` (3 tables) + `000006` (users.marketing_consent, orders.anonymous_id), 3 models + factories, `Marketing/{Catalog,EventService,Dispatcher,Provider,ProviderException,MockProvider,Resolver}`, `DeliverMarketingEvent` job, `PruneMarketingData` command, `MarketingEventController`, `MarketingConsentController`, `StoreMarketingEventRequest`, `MarketingEventResource`, `config/marketing.php`, `Phase12MarketingTrackingTest`.
+- Modified backend: `OrderFulfillmentService` + `OrderResolutionService` (afterCommit event hooks only), `CheckoutService` + `CreateOrderRequest` + `Order` (optional anonymous_id), `AnalyticsService` + `AnalyticsController` + routes (funnel), `User` (consent cast), `AppServiceProvider` (limiter), `security.php`, `console.php`, `.env.example`.
+- New frontend: `lib/marketing.ts`, `ConsentBanner.tsx`, `MarketingConsentToggles.tsx`.
+- Modified frontend: `App.tsx` (RouteTracker + banner), ProductPage/ProductCard/WishlistPage/ShopPage/CartPage/CheckoutPage (tracker calls), AccountPage (consent toggles), `.env.example` (comment only).
+
+#### Tests
+- New `backend/tests/Feature/Phase12MarketingTrackingTest.php` — **42 tests**: catalog/unsupported/server-only; anonymous/authed/foreign-identity ingestion; malformed/oversized/duplicate/hidden-duplicate; UTM/click-ID capture, junk stripping, first/last touch, login linking without merging, direct-traffic behavior; consent decline/default-deny/stored-wins/round-trip; all six client events + unknown product; purchase content/idempotency/revisit-safety; refund + cancellation flows with duplicate guards; queued fanout, consent-gated fanout, retry-then-send, terminal failure, mock/idempotency keys, unknown-provider safety with paid transition intact; no-send endpoints; payload secret scans; ingestion rate limiting; prune old/keep recent/idempotent, kill-switch behavior.
+- Full suite: `347 passed (1676 assertions)` - 304 pre-existing + 43 new, zero failures.
+- Frontend: `npm run build` ✅ (vite 7.3.6, `index.html` 2,014.73 kB, gzip 1,076.13 kB, ~22.9s).
+- `vendor/bin/pint --dirty --format agent` ✅ clean.
+
+#### Environment / configuration
+- `MARKETING_EVENTS_ENABLED=true` (reserved kill-switch flag, documented), `MARKETING_PROVIDERS=mock` (comma list; `null` disables), `MARKETING_EVENT_RETENTION_DAYS=90`. No secrets committed; mock needs none.
+
+#### Future real-provider integration requirements
+- One `MarketingProvider` adapter (HTTP with timeouts, error→`MarketingProviderException` mapping with retryable flags, honor `event_id` idempotency; document the provider's own idempotency capability), credentials in env only, `marketing.drivers.{name}.class` + name in `MARKETING_PROVIDERS`, adapter tests with recorded fixtures (no live calls in CI), provider event mapping at the adapter boundary, privacy/consent review per vendor. No changes to checkout, fulfillment, models, carts, or notification classes.
+
+#### Remaining limitations
+- No real vendor, so no external delivery validated; provider DLR/revenue-reconciliation webhooks don't exist.
+- Guest provider fan-out is skipped (no server-known consent); guest measurement still lands in the ledger.
+- Single-touch (first+last) attribution only; no cross-device identity; no bot filtering.
+- `MARKETING_EVENTS_ENABLED` is presently informational (ingestion always on); full kill-switch wiring deferred to provider phase.
+- This phase does not claim production marketing readiness — it implements and tests the listed foundation and documents the rest.
+
 ## Frontend Architecture
 
 The frontend is a React SPA with route-level lazy loading.
@@ -1726,6 +1811,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 76 | Phase 10 test coverage | ✅ | `Phase10NotificationRealtimeTest`, 25 tests; suite total 279 passed (1386 assertions) |
 | 77 | SMS/WhatsApp delivery foundation | ✅ | provider-neutral gateways, delivery table, queued idempotent jobs, mock drivers only — no vendor selected; see Phase 11 section |
 | 78 | Phase 11 test coverage | ✅ | `Phase11MessagingDeliveryTest`, 25 tests; suite total 304 passed (1489 assertions) |
+| 79 | Marketing & conversion tracking foundation | ✅ | first-party event ledger, attribution, consent, mock provider, funnel analytics; no vendor selected; see Phase 12 section |
+| 80 | Phase 12 test coverage | ✅ | `Phase12MarketingTrackingTest`, 43 tests; suite total 347 passed (1676 assertions) |
 
 Legend:
 

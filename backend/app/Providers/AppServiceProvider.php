@@ -149,5 +149,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute($limits('admin_mutations')['per_minute'] ?? 120)
                 ->by((string) $request->user()?->getAuthIdentifier());
         });
+
+        RateLimiter::for('marketing-events', function (Request $request) use ($limits, $actor) {
+            $key = $actor($request);
+
+            return [
+                Limit::perMinute($limits('marketing_events')['per_minute'] ?? 60)->by($key),
+                Limit::perHour($limits('marketing_events')['per_hour'] ?? 600)->by($key),
+            ];
+        });
     }
 }

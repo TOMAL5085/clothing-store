@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
+use App\Http\Controllers\Api\V1\MarketingConsentController;
+use App\Http\Controllers\Api\V1\MarketingEventController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Notifications\AdminNotificationController;
 use App\Http\Controllers\Api\V1\Notifications\NotificationController;
@@ -61,6 +63,8 @@ Route::prefix('v1')->group(function () {
     Route::post('checkout/orders', [CheckoutController::class, 'store'])->middleware('throttle:checkout');
     Route::get('checkout/orders/{order}', [CheckoutController::class, 'show'])->middleware('throttle:order-lookup');
 
+    Route::post('marketing/events', [MarketingEventController::class, 'store'])->middleware('throttle:marketing-events');
+
     Route::post('payments/stripe/webhook', StripeWebhookController::class);
     Route::match(['get', 'post'], 'payments/sslcommerz/ipn', [SslCommerzController::class, 'ipn']);
     Route::match(['get', 'post'], 'payments/sslcommerz/success', [SslCommerzController::class, 'success']);
@@ -74,6 +78,8 @@ Route::prefix('v1')->group(function () {
         Route::post('auth/otp/verify', [OtpController::class, 'verify'])->middleware('throttle:otp');
         Route::put('profile', [ProfileController::class, 'update']);
         Route::put('profile/password', [ProfileController::class, 'password']);
+        Route::get('profile/marketing-consent', [MarketingConsentController::class, 'show']);
+        Route::put('profile/marketing-consent', [MarketingConsentController::class, 'update']);
         Route::apiResource('addresses', AddressController::class);
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{order}', [OrderController::class, 'show']);
@@ -140,6 +146,7 @@ Route::prefix('v1')->group(function () {
             Route::get('analytics/inventory', [AnalyticsController::class, 'inventory']);
             Route::get('analytics/reviews', [AnalyticsController::class, 'reviews']);
             Route::get('analytics/wishlist', [AnalyticsController::class, 'wishlist']);
+            Route::get('analytics/marketing', [AnalyticsController::class, 'marketing']);
 
             // Shipping
             Route::post('orders/{order}/shipment', [ShipmentController::class, 'store'])->middleware('throttle:admin-mutations');

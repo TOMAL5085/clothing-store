@@ -26,6 +26,7 @@ return [
         'storefront_mutations' => ['per_minute' => 60],
         'resolution_requests' => ['per_minute' => 10, 'per_hour' => 60],
         'admin_mutations' => ['per_minute' => 120],
+        'marketing_events' => ['per_minute' => 60, 'per_hour' => 600],
     ],
 
     /*

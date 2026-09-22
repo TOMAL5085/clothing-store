@@ -5,6 +5,7 @@ import { useUiStore } from "@/store/uiStore";
 import { useCartStore } from "@/store/cartStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { usePageTitle } from "@/utils/usePageTitle";
+import { trackAddToCart } from "@/lib/marketing";
 
 export default function WishlistPage() {
   usePageTitle("Wishlist");
@@ -44,6 +45,7 @@ export default function WishlistPage() {
                     onClick={() => {
                       void addItem(product.id, defaultSize, 1, product.colors[0]?.name)
                         .then(() => {
+                          trackAddToCart({ productId: product.id, slug: product.slug, quantity: 1 });
                           removeFromWishlist(product.id);
                           pushToast(`${product.name} moved to bag`);
                           setMiniCartOpen(true);
