@@ -1,0 +1,4 @@
+# Local-only docs (kept on disk, not tracked in git)
+CONTEXT.md
+FINAL_QA_CHECKLIST.md
+PRODUCTION_CHECKLIST.md
