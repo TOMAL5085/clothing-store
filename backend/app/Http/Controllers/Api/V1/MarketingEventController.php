@@ -22,7 +22,7 @@ class MarketingEventController extends Controller
             return response()->json(['message' => 'Marketing measurement is disabled.'], 503);
         }
 
-        $result = $events->ingest($request->user(), $request->validated());
+        $result = $events->ingest($request->user('sanctum'), $request->validated());
 
         if ($result['status'] === 'duplicate') {
             return response()->json(['data' => MarketingEventResource::make($result['event'])], 200);

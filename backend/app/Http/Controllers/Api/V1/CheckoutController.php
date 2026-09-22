@@ -21,8 +21,8 @@ class CheckoutController extends Controller
 
     public function quote(QuoteCheckoutRequest $request): JsonResponse
     {
-        $cart = $this->cartService->resolve($request->user(), $request->input('cart_token'));
-        $quote = $this->checkoutService->quote($cart, $request->validated(), $request->user());
+        $cart = $this->cartService->resolve($request->user('sanctum'), $request->input('cart_token'));
+        $quote = $this->checkoutService->quote($cart, $request->validated(), $request->user('sanctum'));
 
         return response()->json(['data' => [
             'countryCode' => $quote['country_code'],
@@ -41,8 +41,8 @@ class CheckoutController extends Controller
 
     public function store(CreateOrderRequest $request): JsonResponse
     {
-        $cart = $this->cartService->resolve($request->user(), $request->input('cart_token'));
-        $result = $this->checkoutService->placeOrder($cart, $request->validated(), $request->user());
+        $cart = $this->cartService->resolve($request->user('sanctum'), $request->input('cart_token'));
+        $result = $this->checkoutService->placeOrder($cart, $request->validated(), $request->user('sanctum'));
 
         return OrderResource::make($result['order'])
             ->additional([
@@ -64,7 +64,7 @@ class CheckoutController extends Controller
         $public = $this->checkoutService->showPublic(
             $order,
             $request->query('checkout_token'),
-            $request->user(),
+            $request->user('sanctum'),
         );
 
         $request->merge(['include_token' => false]);

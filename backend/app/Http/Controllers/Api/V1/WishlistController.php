@@ -38,8 +38,8 @@ class WishlistController extends Controller
 
     private function resolve(Request $request): Wishlist
     {
-        if ($request->user()) {
-            return Wishlist::firstOrCreate(['user_id' => $request->user()->id], ['guest_token' => $request->input('wishlist_token') ?? (string) Str::uuid()]);
+        if ($request->user('sanctum')) {
+            return Wishlist::firstOrCreate(['user_id' => $request->user('sanctum')->id], ['guest_token' => $request->input('wishlist_token') ?? (string) Str::uuid()]);
         }
 
         return Wishlist::firstOrCreate(['guest_token' => $request->input('wishlist_token') ?? (string) Str::uuid()]);

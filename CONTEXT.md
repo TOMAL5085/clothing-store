@@ -1,6 +1,6 @@
 # Clothing Store Project Handoff Context
 
-Last verified by opencode on 2026-09-19.
+Last verified by opencode on 2026-09-22.
 
 This file is the handoff document for continuing the project in Cursor. It is based on the current repository state, not on the original prompt alone.
 
@@ -13,7 +13,7 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `404 passed`, `1847 assertions`.
+- Current backend test result: ✅ `439 passed`, `1980 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
@@ -25,6 +25,7 @@ This project is an ecommerce website named `clothing-store`.
 - Phase 12 (server-side marketing & conversion tracking foundation, no vendor selected) is implemented and tested (`Phase12MarketingTrackingTest`, 43 tests).
 - Phase 13 (CMS + banner/slider management) is implemented and tested (`Phase13CmsBannerTest`, 44 tests).
 - Phase 14 (production deployment & infrastructure readiness) adds deployment docs, env contract, and readiness tests (`Phase14ProductionReadinessTest`, 13 tests).
+- Phase 15 (final QA & client handoff) adds handoff docs, QA checklist, and regression tests (`Phase15FinalQaTest`, 35 tests); fixes optional-auth Sanctum resolution on public routes.
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -1318,6 +1319,37 @@ small config hardening, readiness tests.
 - No cloud deployment performed; no WAF/CDN/APM/SIEM installed (all marked EXTERNAL in docs).
 - Multi-server needs a shared cache/queue store; TLS/HSTS live at the proxy; backups/restore must be scheduled outside the repo; real payment callbacks only verifiable with live provider config.
 - This phase does not claim "production ready" as a state — it delivers validated readiness artifacts and documents the rest.
+
+### Phase 15 — Final QA & Client Handoff
+
+- Baseline commit: `9e7189d` (HEAD == origin/main, clean tree). No rollback performed.
+- QA scope: full feature-matrix audit (Phases 1–14) against the live repo, full backend regression, HTTP-level customer + admin smoke tests against local integrated servers, security regression, API contract review, frontend build, responsive/visual sanity (human pass still recommended — no browser automation in repo).
+- Full feature matrix result: every phase's feature exists, routes exist, frontend is connected where intended, permissions enforced, automated coverage present. One genuine regression found (see defect below); no other regressions. Known limitations from Phase 14 retained (mock SMS/WhatsApp/marketing delivery, no live provider credentials, single-node queue/cache defaults, external infra pending).
+- Backend test result: `439 passed (1980 assertions)` — 404 pre-existing + 35 new, zero failures.
+- Frontend build result: `npm run build` ✅ (vite, zero TS errors; `dist/index.html` ~2,030 kB single-file).
+- Security regression result: guest 401s, customer admin-403s, cross-customer order 403, token-gated guest order confirmation, rate limits active, no secrets in scanned responses, production error contract unchanged. No new vulnerabilities found.
+- Customer smoke-test result (HTTP-level, local `php artisan serve` + `npm run dev`): register → login → cart → promo `JAAJ10` → demo checkout (paid) → owned order history → notifications after queue run → wishlist add → logout — all PASS. Public catalog/banners/CMS/categories 200. SPA routes (`/account`, `/admin/*`, `/checkout`, `/product/*`) 200. Marketing event ingestion accepted.
+- Admin smoke-test result (HTTP-level): admin login, orders list/detail, cancellation approve → `Cancelled`, CMS create → public visible → delete → hidden, analytics overview, audit log, reviews list — all PASS. Test CMS row cleaned up (deleted, public count 0 after).
+- Responsive sanity result: NOT performed by automation (no browser-testing stack in repo; deliberately not installed to avoid scope creep). Documented as recommended human pass in `FINAL_QA_CHECKLIST.md`. No layout changes made in this phase.
+- Payment readiness: demo driver verified end-to-end; server-authoritative BD→SSLCOMMERZ / non-BD→Stripe routing re-verified; webhook/IPN idempotency covered by existing suites. Live keys, webhook registration, and real-money round trip remain REQUIRES EXTERNAL CONFIGURATION.
+- Documentation created: `CLIENT_HANDOFF.md` (owner guide), `ADMIN_GUIDE.md` (task procedures), `FINAL_QA_CHECKLIST.md` (structured acceptance checklist). `README.md`, `DEPLOYMENT.md`, `PRODUCTION_CHECKLIST.md` reviewed — no contradictions found; commands/versions consistent.
+- Known defects: one real defect found and fixed (see below). No open defects.
+- Known limitations: unchanged from Phase 14 + visual/responsive pass still needs a human; banner image upload click-path covered by API tests, human click-through recommended on staging.
+- Externally required configuration: domain, hosting, production PostgreSQL, mail provider, Stripe live keys + webhook, SSLCOMMERZ live credentials + IPN, TLS, backups, monitoring (all listed in `CLIENT_HANDOFF.md` §G and `FINAL_QA_CHECKLIST.md` §R).
+- Final commit: `Complete Phase 15 final QA and client handoff`; final Git state HEAD == origin/main, working tree clean.
+
+#### Defect fixed in Phase 15 (real regression)
+
+- **Optional-auth Sanctum resolution on public routes.** `CartController`, `CheckoutController` (quote/store/show), `WishlistController`, and `MarketingEventController` called `$request->user()`, which resolves the default `web` (session) guard on routes without `auth:sanctum` middleware — so Bearer-token customers were silently treated as guests: authenticated checkouts created guest-owned orders (missing history, missing customer notifications), carts/wishlists resolved to guest records, and marketing events lost user attribution. Fixed by using `$request->user('sanctum')` at those call sites (14 lines changed, no business-rule change). Verified live: authenticated smoke checkout now yields an owned order (`history=1`, customer notified). Regression tests added in `Phase15FinalQaTest` using real Bearer headers (which `actingAs` would bypass): authenticated checkout ownership + notifications + history, user wishlist resolution, user cart resolution, marketing event user attribution.
+- No test assertions were weakened; four initial test-side mistakes (wrong status code/shape assumptions, `actingAs` persistence across requests, guest-cart token reuse, notification count) were corrected to match real behavior.
+
+#### Tests
+
+- New `backend/tests/Feature/Phase15FinalQaTest.php` — **35 tests**: public storefront (products pagination, inactive 404, categories, CMS visibility, banner visibility, marketing unknown-event rejection), auth boundaries (guest 401s, admin 403s, cross-customer order 403, register/login/logout lifecycle), optional-auth regression (4 Bearer-header tests), shopping (cart add/update/remove/totals, unknown product, promo valid/invalid), checkout/payments (demo paid order + stock decrement + notifications, provider routing authority, token-gated confirmation, owned history, admin status progression + invalid rejection), cancellation/return/refund lifecycles, notifications list/unread/mark-read, preference suppression, review auth boundary, wishlist add/remove, marketing purchase authority (browser rejected, single server event), audit log write, health + request ID, secrets scan, admin analytics auth, pagination meta.
+- Full suite: `439 passed (1980 assertions)` — 404 pre-existing + 35 new, zero failures.
+- Frontend: `npm run build` ✅ (zero TS errors).
+- `vendor/bin/pint --dirty --test` ✅ clean.
+- `php artisan app:check` ✅ passed locally.
 
 ## Frontend Architecture
 
