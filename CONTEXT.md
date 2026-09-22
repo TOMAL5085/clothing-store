@@ -13,10 +13,11 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `166 passed`, `740 assertions`.
+- Current backend test result: ✅ `198 passed`, `982 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
+- Phase 7 (admin analytics & reporting) is implemented and tested (`Phase7AnalyticsTest`, 32 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -168,12 +169,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":166,"passed":166,"assertions":740,"duration_ms":54457}
+{"tool":"phpunit","result":"passed","tests":198,"passed":198,"assertions":982,"duration_ms":53765}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), and Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), and Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests).
 
 ## Git State
 
@@ -789,6 +790,68 @@ Implemented a comprehensive notification system using Laravel's native notificat
 #### Next recommended phase
 - Per the roadmap notes in Phase 5: SMS/WhatsApp provider integrations, real-time (Reverb/WebSocket) notifications, notification preferences. Do not start them without an explicit phase brief.
 
+### Phase 7 - Admin Analytics & Reporting
+
+**Status: ✅ Complete**
+
+#### Audit outcome
+- No analytics/dashboard page or endpoint existed. Admin pages were products, customers, orders, reviews; all admin APIs follow `Gate::authorize('viewAny', Order::class)` inside the `can:create,Product` admin group.
+- No export/reporting pattern existed anywhere, so export is a client-side CSV download of the already-fetched sales series (no backend work, no new dependency).
+- No chart library is installed (`lucide-react` + Tailwind only), so dashboard charts are hand-rolled proportional bar rows reusing existing primitives and design tokens.
+
+#### Metric definitions (do not reinterpret these)
+- **Paid population**: orders with `payment_status = 'paid'` (any order `status`). Unpaid/pending/failed/canceled payments never contribute to revenue or AOV.
+- **Gross revenue**: `SUM(orders.total)` over the paid population in range.
+- **Refunded amount**: `SUM(refunds.amount)` for `status = 'succeeded'` with `requested_at` in range. Refunds only exist for paid orders per the Phase 4 resolution model, so every succeeded refund offsets revenue.
+- **Net revenue** (the headline `revenue` metric): gross minus refunded.
+- **AOV**: gross revenue divided by paid order count (same paid population); `0.0` when there are no paid orders.
+- **Orders KPI**: total orders in range (any status); `paid_orders` reported alongside.
+- **Order breakdown**: counts over `Order::STATUSES` (`pending/confirmed/processing/shipped/delivered/cancelled`, zero-filled, never invented) plus `Order::PAYMENT_STATUSES` plus `refunded_orders` (distinct orders with a succeeded refund requested in range).
+- **Customers**: `total_customers` (`role = customer`), `purchasing_customers` (all-time distinct buyers of paid orders), `new_customers` (created in range), `repeat_customers` (all-time 2+ paid orders), `guest_orders` vs `authenticated_orders` (paid orders in range by null/non-null `user_id`). Aggregate only — no names, emails, or phones leave the API.
+- **Inventory**: exact `Product::getInventoryStatusAttribute` rule in SQL — out of stock when `in_stock = false OR stock_quantity <= 0`, otherwise low stock when `stock_quantity <= low_stock_threshold` (per-product threshold, schema default 5). Product-level only (variants excluded, matching the accessor).
+- **Reviews**: status counts, average over `approved` only, distinct approved products. Never bypasses `ReviewService` moderation.
+- **Wishlist**: total items, account vs guest wishlist counts, most-saved **active** products.
+- **Money** stays in major units with two decimals (same representation as `OrderResource`); the frontend formats via the existing currency store. Timezone is the app timezone (UTC) for all range boundaries; every response carries `{preset, from, to, timezone, group}` metadata.
+- **Comparisons** are like-for-like: calendar presets compare against the previous calendar unit, rolling/custom ranges against the immediately preceding equal-length span; `change_percent` is `null` when the previous value is zero.
+
+#### Backend
+- `app/Services/Analytics/AnalyticsRange.php`: preset resolution (`today/7d/30d/month/prev_month/year/custom`), auto grouping (day ≤ 62d, week ≤ 370d, else month), explicit `group` override, `previous()` period, chronological bucket list with gap filling, Postgres `date_trunc` bucket expressions.
+- `app/Services/Analytics/AnalyticsService.php`: single service with `overview`, `salesSeries`, `orderBreakdown`, `topProducts`, `topCategories`, `customerMetrics`, `inventoryMetrics`, `lowStockList`, `reviewMetrics`, `wishlistMetrics` — all database-side aggregation (`SUM/COUNT/AVG/GROUP BY`), no dataset loading into PHP. (`MAX(boolean)` does not exist in Postgres — boolean rollups use `MAX(col::int)`.)
+- `app/Http/Requests/Admin/AnalyticsRequest.php`: `preset/from/to/group/limit/sort` validation (`from <= to`, max 366-day span via `after()` hook, `limit 1-50`, `sort`/`group` whitelists so no arbitrary order-by input is possible).
+- `app/Http/Controllers/Api/V1/Admin/AnalyticsController.php`: 9 actions, each opening with `Gate::authorize('viewAny', Order::class)`, returning `{"data": ...}`.
+- Migration `2026_09_22_000001_add_analytics_index_to_orders_table.php`: one composite index `orders(payment_status, created_at)` for range queries. No other indexes added (FKs and status columns are already indexed); no caching added (invalidation not justified yet).
+
+#### API endpoints (all `GET /api/v1/admin/...`, admin-only)
+- `analytics/overview` — KPIs with previous-period values and percent changes.
+- `analytics/sales` — `{range, series[]}` with `{period, orders, gross_revenue, refunded_amount, revenue}` per bucket.
+- `analytics/orders` — `{total, by_status[], by_payment_status[], refunded_orders}`.
+- `analytics/products` — top products (`limit`, `sort=quantity|revenue`): external id, slug, name, `is_active`, units, revenue, order count; sourced from `order_items` of paid orders.
+- `analytics/categories` — per-category units, revenue, order count.
+- `analytics/customers` — aggregate customer metrics (no personal data).
+- `analytics/inventory` — active/out/low counts, total units, `low_stock_list`.
+- `analytics/reviews` — moderation counts, approved average, reviewed products.
+- `analytics/wishlist` — item/account/guest counts plus most-saved active products.
+
+#### Frontend
+- New `frontend/src/pages/admin/AdminAnalyticsPage.tsx` (route `/admin/analytics`, lazy-loaded): preset buttons (Today/7 Days/30 Days/This Month/Previous Month/This Year/Custom with date inputs and client-side `from <= to` check), 8 KPI cards with prior-period badges, revenue + orders bar charts, status breakdown bars, sortable top-products table, categories, inventory-attention list, review/wishlist panels, client-side sales CSV download. Loads all nine endpoints in parallel (`Promise.allSettled`); a failed overview shows an error banner while other sections degrade to empty states. Responsive grid (`sm:2`, `xl:4`, `lg:2` sections) reusing existing primitives/tokens.
+- Nav: "Analytics" link added to all four existing admin page headers, the route in `App.tsx`, and an Analytics shortcut card on `AccountPage` for admins.
+
+#### Tests
+- New `backend/tests/Feature/Phase7AnalyticsTest.php` — **32 tests**: admin/customer/guest authorization; unpaid exclusion; succeeded vs non-succeeded refund handling; date filtering; AOV value and zero-order safety; prior-period comparison; daily grouping with gap fill and per-bucket net math; explicit week/month grouping; real status breakdown (rejects invented statuses); refunded-order count; product qty/revenue aggregation, limit, both sorts, unpaid exclusion; category aggregation; customer counts incl. repeat and guest/auth split with no `email` key; inventory rule conformance and low-stock list; review counts and approved-only average; wishlist counts and active-only top list; six validation rejections (preset, date format, reversed/oversized range, limit, sort/group injection); full 9-endpoint sensitive-value scan (`checkout_token`, card fields, passwords, secrets, emails, phones).
+- Full suite: `198 passed (982 assertions)` — 166 pre-existing + 32 new, zero failures.
+- Frontend: `npm run build` ✅ (vite 7.3.6, 2383 modules, `dist/index.html` 1,915.25 kB, gzip 1,048.63 kB).
+- `vendor/bin/pint --dirty --format agent` ✅ clean.
+
+#### Known limitations / follow-ups
+- Multi-currency is not normalized: totals are summed as stored (same convention as order display).
+- `products/{product}` detail does not embed analytics; dashboard-only.
+- No server-side export; CSV is generated in the browser from the fetched series.
+- No analytics caching; revisit only with measured need and an invalidation plan.
+- `prev_month`/`year` comparisons use calendar units; intraday `today` compares against yesterday.
+
+#### Next recommended phase
+- Per earlier roadmap notes: SMS/WhatsApp integrations, real-time (Reverb/WebSocket) updates, notification preferences. Do not start them without an explicit phase brief.
+
 ## Frontend Architecture
 
 The frontend is a React SPA with route-level lazy loading.
@@ -1314,6 +1377,8 @@ Feature tests currently cover:
 - notification database persistence, email construction, and payload hygiene
 - review creation/visibility/aggregation/moderation/ownership backed by delivered+paid order checks
 - wishlist add/remove/list/isolation/inactive-product handling for guest and authenticated flows
+- analytics revenue/AOV/series/breakdown/product/category/customer/inventory/review/wishlist math backed by real persisted rows
+- analytics authorization (admin-only) and response hygiene (no sensitive values)
 
 When adding backend behavior, add or update feature tests first/alongside the implementation.
 
@@ -1398,6 +1463,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 66 | Product reviews & ratings | ✅ | `reviews` table, `ReviewService` purchase verification, moderation, aggregates; customer + admin APIs; product page UI; admin moderation page |
 | 67 | Wishlist completion | ✅ | backend already existed (guest+auth, unique constraint); added inactive-product guard, connected all UI to backend, removed dead scaffold store, 9 feature tests |
 | 68 | Phase 6 test coverage | ✅ | `Phase6ReviewsWishlistTest`, 35 feature tests; suite total 166 passed (740 assertions) |
+| 69 | Admin analytics & reporting | ✅ | `AnalyticsService` + 9 admin endpoints, metric definitions below, dashboard UI at `/admin/analytics` |
+| 70 | Phase 7 test coverage | ✅ | `Phase7AnalyticsTest`, 32 feature tests; suite total 198 passed (982 assertions) |
 
 Legend:
 

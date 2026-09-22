@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AddressController;
+use App\Http\Controllers\Api\V1\Admin\AnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\CancellationManagementController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
 use App\Http\Controllers\Api\V1\Admin\OrderManagementController;
@@ -118,6 +119,17 @@ Route::prefix('v1')->group(function () {
             Route::get('reviews', [ReviewManagementController::class, 'index']);
             Route::get('reviews/{review}', [ReviewManagementController::class, 'show']);
             Route::patch('reviews/{review}', [ReviewManagementController::class, 'update']);
+
+            // Analytics
+            Route::get('analytics/overview', [AnalyticsController::class, 'overview']);
+            Route::get('analytics/sales', [AnalyticsController::class, 'sales']);
+            Route::get('analytics/orders', [AnalyticsController::class, 'orders']);
+            Route::get('analytics/products', [AnalyticsController::class, 'products']);
+            Route::get('analytics/categories', [AnalyticsController::class, 'categories']);
+            Route::get('analytics/customers', [AnalyticsController::class, 'customers']);
+            Route::get('analytics/inventory', [AnalyticsController::class, 'inventory']);
+            Route::get('analytics/reviews', [AnalyticsController::class, 'reviews']);
+            Route::get('analytics/wishlist', [AnalyticsController::class, 'wishlist']);
 
             // Shipping
             Route::post('orders/{order}/shipment', [ShipmentController::class, 'store']);
