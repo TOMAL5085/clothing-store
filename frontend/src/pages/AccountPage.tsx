@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Moon, Package, RotateCcw, Save, ScrollText, ShieldCheck, Shirt, SlidersHorizontal, Star, Truck, XCircle } from "lucide-react";
+import { BarChart3, Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Megaphone, Moon, Package, RotateCcw, Save, ScrollText, ShieldCheck, Shirt, SlidersHorizontal, Star, Truck, XCircle } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import { useAuthStore, type Address, type AddressPayload } from "@/store/authStore";
 import { useOrderStore, type Order } from "@/store/orderStore";
@@ -311,6 +311,7 @@ export default function AccountPage() {
                   { icon: Star, label: "Reviews", value: "Moderate", to: "/admin/reviews", hint: "Approve or reject product reviews" },
                   { icon: BarChart3, label: "Analytics", value: "Insights", to: "/admin/analytics", hint: "Revenue, orders and catalog reports" },
                   { icon: ScrollText, label: "Audit", value: "Log", to: "/admin/audit-log", hint: "Administrative action history" },
+                  { icon: Megaphone, label: "Content", value: "Manage", to: "/admin/content", hint: "CMS content and hero banners" },
                 ]
               : []),
           ].map(({ icon: Icon, label, value, to, hint }) => (

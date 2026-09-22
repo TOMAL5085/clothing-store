@@ -181,6 +181,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import jaajLogo from "@/assets/imagery/jaaj logo-02.png";
+import { fetchBannerSlides } from "@/lib/content";
 
 const HERO_IMAGES = [
   "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1920&q=80",
@@ -188,10 +189,27 @@ const HERO_IMAGES = [
   "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1920&q=80",
 ];
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 768px)").matches);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 768px)");
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  return isMobile;
+}
+
 export function Hero() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [slides, setSlides] = useState(HERO_IMAGES);
+  const [mobileSlides, setMobileSlides] = useState<string[]>([]);
+  const isMobile = useIsMobile();
+  const images = isMobile && mobileSlides.length > 0 ? mobileSlides : slides;
 
   const triggerSlide = useCallback((nextIndex: number) => {
     setIsAnimating(true);
@@ -208,20 +226,20 @@ export function Hero() {
   const handleNext = useCallback(() => {
     if (isAnimating) return;
     setCurrentIndex((prevIndex) => {
-      const next = (prevIndex + 1) % HERO_IMAGES.length;
+      const next = (prevIndex + 1) % images.length;
       triggerSlide(next);
       return prevIndex;
     });
-  }, [isAnimating, triggerSlide]);
+  }, [isAnimating, triggerSlide, images.length]);
 
   const handlePrev = useCallback(() => {
     if (isAnimating) return;
     setCurrentIndex((prevIndex) => {
-      const prev = (prevIndex - 1 + HERO_IMAGES.length) % HERO_IMAGES.length;
+      const prev = (prevIndex - 1 + images.length) % images.length;
       triggerSlide(prev);
       return prevIndex;
     });
-  }, [isAnimating, triggerSlide]);
+  }, [isAnimating, triggerSlide, images.length]);
 
   // Auto-Slide Interval Timer
   useEffect(() => {
@@ -229,14 +247,30 @@ export function Hero() {
 
     const timer = setInterval(() => {
       setCurrentIndex((prevIndex) => {
-        const next = (prevIndex + 1) % HERO_IMAGES.length;
+        const next = (prevIndex + 1) % images.length;
         triggerSlide(next);
         return prevIndex;
       });
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [isPaused, isAnimating, triggerSlide]);
+  }, [isPaused, isAnimating, triggerSlide, images.length]);
+
+  // Published CMS slides replace the bundled imagery; failures and empty
+  // results keep the approved fallback so the hero never goes blank.
+  useEffect(() => {
+    let cancelled = false;
+    fetchBannerSlides().then((records) => {
+      if (cancelled || records.length === 0) return;
+      setSlides(records.map((record) => record.image_url as string));
+      const mobile = records.map((record) => record.mobile_image_url).filter((url): url is string => Boolean(url));
+      if (mobile.length > 0) setMobileSlides(mobile);
+      setCurrentIndex(0);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section
@@ -250,7 +284,7 @@ export function Hero() {
           <motion.div
             key={currentIndex}
             className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${HERO_IMAGES[currentIndex]})` }}
+            style={{ backgroundImage: `url(${images[currentIndex % images.length]})` }}
             initial={{ opacity: 0, scale: 1.05 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
@@ -352,7 +386,7 @@ export function Hero() {
 
       {/* 6. Number/Dot Indicators */}
       <div className="absolute bottom-6 left-8 z-30 flex gap-3 md:left-16">
-        {HERO_IMAGES.map((_, idx) => (
+        {images.map((_, idx) => (
           <button
             key={idx}
             onClick={() => {

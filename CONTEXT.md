@@ -13,7 +13,7 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `347 passed`, `1676 assertions`.
+- Current backend test result: ✅ `391 passed`, `1810 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
@@ -23,6 +23,7 @@ This project is an ecommerce website named `clothing-store`.
 - Phase 10 (notification preferences + real-time notifications) is implemented and tested (`Phase10NotificationRealtimeTest`, 25 tests).
 - Phase 11 (SMS/WhatsApp delivery foundation, mock drivers only, no vendor selected) is implemented and tested (`Phase11MessagingDeliveryTest`, 25 tests).
 - Phase 12 (server-side marketing & conversion tracking foundation, no vendor selected) is implemented and tested (`Phase12MarketingTrackingTest`, 43 tests).
+- Phase 13 (CMS + banner/slider management) is implemented and tested (`Phase13CmsBannerTest`, 44 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -174,12 +175,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":347,"passed":347,"assertions":1676,"duration_ms":124311}
+{"tool":"phpunit","result":"passed","tests":391,"passed":391,"assertions":1810,"duration_ms":140101}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests), and Phase 11 (`Phase11MessagingDeliveryTest`, 25 dedicated feature tests), and Phase 12 (`Phase12MarketingTrackingTest`, 43 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests), and Phase 11 (`Phase11MessagingDeliveryTest`, 25 dedicated feature tests), and Phase 12 (`Phase12MarketingTrackingTest`, 43 dedicated feature tests), and Phase 13 (`Phase13CmsBannerTest`, 44 dedicated feature tests).
 
 ## Git State
 
@@ -1189,6 +1190,71 @@ Provider-neutral first-party measurement: the database is the source of truth fo
 - `MARKETING_EVENTS_ENABLED` is presently informational (ingestion always on); full kill-switch wiring deferred to provider phase.
 - This phase does not claim production marketing readiness — it implements and tests the listed foundation and documents the rest.
 
+### Phase 13 — CMS + Banner/Slider Management
+
+**Status: ✅ Complete**
+
+Backend-controlled content foundation. No third-party CMS, no WYSIWYG package, no redesign — the storefront renders pixel-identically from seeded records.
+
+#### Audit findings (verified before changing anything)
+- **No CMS existed** in backend or frontend. Homepage copy lives in `frontend/src/data/siteCopy.ts`, whose header mandates: hero text must never change, slider work swaps imagery only. The `Hero` component cycles 3 hard-coded Unsplash images with fixed copy/CTAs/controls; `AnnouncementBar` renders the fixed `ANNOUNCEMENT` constant.
+- **No upload handling** existed anywhere in `app/`. The `public` filesystem disk is configured (`storage/app/public`, URL `APP_URL/storage`, S3-compatible abstraction preserved).
+- **Reused as-is**: `can:create,Product` admin gate + `throttle:admin-mutations`, `AuditLogger` injection pattern, FormRequest/Resource conventions, admin page patterns (filters, cards, modal forms, toasts), `ProductCard`-style primitives.
+
+#### CMS architecture
+- `cms_contents`: `key` unique (slug format), `type` whitelisted (`announcement/promo/collection/service/homepage_section`), title/subtitle/body, `image_path`/`mobile_image_path` (storage-relative or absolute URL), `cta_label`/`cta_url`, `status` (`draft/published/archived`), `sort_order` (0–9999), optional `starts_at`/`ends_at`, `created_by`/`updated_by` (null on user delete), timestamps. Plain-text body only — no HTML pipeline, no `dangerouslySetInnerHTML` anywhere (verified by test + grep).
+- Statuses: `draft` (hidden everywhere public), `published` (visible only inside schedule), `archived` (hidden, retained for history).
+
+#### Banner architecture (dedicated entity, §11)
+- `banners`: nullable unique key, nullable title (used as slide alt text), required `image_path`, nullable mobile image, nullable CTA fields, same status/schedule/ordering/audit columns as CMS. Separate table because hero slides are pure imagery with fixed overlay copy — forcing them into generic content rows would invite copy drift that `siteCopy.ts` explicitly forbids.
+
+#### Scheduling and visibility
+- Public visibility = `published AND (starts_at IS NULL OR <= now) AND (ends_at IS NULL OR > now)`, computed per query in `scopeVisible()` — no scheduler dependency, so worker outages can never leak future content. `ends_at` without `starts_at` is legal; reversed windows rejected via shared `ValidatesSchedule` trait.
+
+#### API routes
+- Public: `GET /api/v1/cms/content` (`?type=`, `?key=`, `?per_page=` max 50), `GET /api/v1/banners` (`?per_page=` max 10). Both filter in SQL, order `sort_order ASC, id ASC`, and return only public-safe resource fields (no creator IDs).
+- Admin (existing gate + mutation throttle): full CRUD for both (`GET` list with status/type/search filters, `POST`, `GET` show, `PUT`/`PATCH`, `DELETE`), plus `POST .../image` upload endpoints accepting `image`/`mobile_image` multipart files.
+- No other endpoints added; no existing routes changed.
+
+#### Image/media storage
+- `public` disk, directories `cms/{id}/` and `banners/{id}/`, UUID filenames with MIME-derived extensions (never original names). Validation: image MIME jpeg/png/webp, max 5MB. `image_url` accessor passes absolute URLs through, else `Storage::url()`. Replaced/deleted records' managed files are removed; remote URLs and foreign paths are never touched (guarded by `managedAssetPaths()`). No binary data in PostgreSQL; no custom upload server; S3 works unchanged via the same abstraction. No storage config change was needed, so `.env.example` is untouched.
+
+#### Frontend integration (design preserved)
+- `src/lib/content.ts`: `fetchBannerSlides()` / `fetchAnnouncement()` with module-level promise caches and approved-static fallbacks — API failure or empty results render exactly the previous output.
+- `Hero.tsx`: slide images come from the API (mobile variant under 768px via matchMedia); all copy, CTAs, controls, indicators, and animation untouched. Indicators adapt to slide count.
+- `AnnouncementBar.tsx`: title/subtitle feed the existing two-tone segments; fallback is the `ANNOUNCEMENT` constant.
+- New `AdminCmsPage` (`/admin/content`, lazy route, nav links on all admin pages + Account admin card): Content/Banners tabs, search/status filters, create/edit modal, publish/archive/delete, sort-order numbers, datetime scheduling, per-record image + mobile-image upload with preview. Existing primitives/tokens only.
+- Seeded content (`CmsSeeder`, idempotent, wired into `DatabaseSeeder`): `site-announcement` with the exact approved copy, plus 3 hero slides using the exact previous Unsplash URLs — fresh databases render the approved storefront with zero admin work.
+
+#### Caching
+- Public reads cached 60s via `Cache::remember` with a `cms:version` counter bumped on every admin CMS/banner mutation. No tags (database cache driver), no admin/unpublished data cached, no Redis added.
+
+#### Security
+- Admin-only mutations behind the existing gate (customer 403, guest 401 — tested, including PATCH/DELETE on existing records). CTA URLs allowlisted to relative paths and http(s) via shared `SafeUrl` rule (javascript:/data:/vbscript:/file: rejected — tested). Uploads: MIME + size validated, UUID names, directory-scoped, `..` rejected. Bodies stored verbatim as plain text and rendered as text (XSS test pins this). Audit log entries for create/update/delete/media-upload on both entities. Public responses secret-scanned in tests.
+
+#### Delete behavior
+- Hard delete for both entities (content rows, not business records) with managed-asset cleanup; remote/shared assets never deleted. Documented here.
+
+#### Files changed
+- New backend: migrations `000007`/`000008`, `CmsContent` + `Banner` models, factories, `SafeUrl` rule, `ValidatesSchedule` trait, 4 FormRequests, 2 Resources, `ContentMediaService`, 2 admin + 2 public controllers, `CmsSeeder`, `Phase13CmsBannerTest`.
+- Modified backend: `routes/api.php` (16 routes), `DatabaseSeeder` (calls `CmsSeeder`), `CONTEXT.md`.
+- New frontend: `lib/content.ts`, `pages/admin/AdminCmsPage.tsx`.
+- Modified frontend: `Hero.tsx` (dynamic slides), `AnnouncementBar.tsx` (dynamic copy), `App.tsx` (route), `AccountPage.tsx` + 5 admin pages (nav links; also removed stray literal `` `n `` artifacts in the edited nav blocks).
+
+#### Tests
+- New `backend/tests/Feature/Phase13CmsBannerTest.php` — **44 tests**: admin CRUD/publish/archive/delete for both entities; customer 403 + guest 401 (incl. PATCH/DELETE); duplicate keys; invalid type/status/schedule (incl. reversed and end-without-start); future/expired/draft/archived hidden publicly; published ordering deterministic; admin metadata absent publicly; dangerous CTAs rejected; audit rows written; upload stored via fake disk with public URL; invalid/oversized uploads rejected; path-escape safety; replace/delete cleanup; cross-customer modification blocked; verbatim HTML body; secret scan.
+- Full suite: `391 passed (1810 assertions)` — 347 pre-existing + 44 new, zero failures.
+- Frontend: `npm run build` ✅ (vite 7.3.6, `index.html` 2,030.49 kB, gzip 1,079.63 kB, ~14s).
+- `vendor/bin/pint --dirty --format agent` ✅ clean.
+- Manual smoke: `CmsSeeder` run twice (idempotent), `artisan serve` + curl verified `GET /api/v1/banners` (3 seeded slides, ordered) and `GET /api/v1/cms/content?key=site-announcement` (exact approved copy); admin create/publish/schedule/edit/archive/delete + banner upload/reorder verified through the API test flows; homepage renders from seeded records with fallbacks intact. During smoke testing, two initial filtered requests 500'd on cached Eloquent-collection unserialization, so public endpoints now cache resolved plain arrays — re-verified warm (0.07ms cache hit).
+
+#### Remaining limitations
+- Hero copy/CTAs remain hard-coded by design (`siteCopy.ts` mandate); only slide imagery is CMS-driven.
+- No image dimension validation or thumbnail generation (no processing stack added).
+- Only the announcement + hero consume CMS data; other seeded types (`promo`, `collection`, …) are API/admin-ready but not rendered anywhere yet.
+- Public cache TTL is 60s; publishes apply on next fetch after at most 60s.
+- This phase does not claim the CMS is production-hardened beyond the tested controls.
+
 ## Frontend Architecture
 
 The frontend is a React SPA with route-level lazy loading.
@@ -1813,6 +1879,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 78 | Phase 11 test coverage | ✅ | `Phase11MessagingDeliveryTest`, 25 tests; suite total 304 passed (1489 assertions) |
 | 79 | Marketing & conversion tracking foundation | ✅ | first-party event ledger, attribution, consent, mock provider, funnel analytics; no vendor selected; see Phase 12 section |
 | 80 | Phase 12 test coverage | ✅ | `Phase12MarketingTrackingTest`, 43 tests; suite total 347 passed (1676 assertions) |
+| 81 | CMS + banner/slider management | ✅ | cms_contents + banners tables, admin CRUD, public APIs, hero/announcement integration, uploads on public disk; see Phase 13 section |
+| 82 | Phase 13 test coverage | ✅ | `Phase13CmsBannerTest`, 44 tests; suite total 391 passed (1810 assertions) |
 
 Legend:
 

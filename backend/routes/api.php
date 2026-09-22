@@ -3,7 +3,9 @@
 use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AuditLogController;
+use App\Http\Controllers\Api\V1\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Api\V1\Admin\CancellationManagementController;
+use App\Http\Controllers\Api\V1\Admin\CmsContentController as AdminCmsContentController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
 use App\Http\Controllers\Api\V1\Admin\OrderManagementController;
 use App\Http\Controllers\Api\V1\Admin\ProductManagementController;
@@ -12,9 +14,11 @@ use App\Http\Controllers\Api\V1\Admin\ReturnManagementController;
 use App\Http\Controllers\Api\V1\Admin\ReviewManagementController;
 use App\Http\Controllers\Api\V1\Admin\ShipmentController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BannerController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
+use App\Http\Controllers\Api\V1\CmsContentController;
 use App\Http\Controllers\Api\V1\MarketingConsentController;
 use App\Http\Controllers\Api\V1\MarketingEventController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -41,6 +45,8 @@ Route::prefix('v1')->group(function () {
     Route::post('auth/forgot-password', [PasswordResetController::class, 'store'])->middleware('throttle:password-reset');
 
     Route::get('categories', [CategoryController::class, 'index']);
+    Route::get('cms/content', [CmsContentController::class, 'index']);
+    Route::get('banners', [BannerController::class, 'index']);
     Route::get('products', [ProductController::class, 'index']);
     Route::get('products/featured', [ProductController::class, 'featured']);
     Route::get('products/{product}/reviews', [ProductReviewController::class, 'index']);
@@ -135,6 +141,22 @@ Route::prefix('v1')->group(function () {
             // Audit log
             Route::get('audit-logs', [AuditLogController::class, 'index']);
             Route::get('audit-logs/actions', [AuditLogController::class, 'actions']);
+
+            // CMS content
+            Route::get('cms/content', [AdminCmsContentController::class, 'index']);
+            Route::post('cms/content', [AdminCmsContentController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('cms/content/{content}', [AdminCmsContentController::class, 'show']);
+            Route::match(['put', 'patch'], 'cms/content/{content}', [AdminCmsContentController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('cms/content/{content}', [AdminCmsContentController::class, 'destroy'])->middleware('throttle:admin-mutations');
+            Route::post('cms/content/{content}/image', [AdminCmsContentController::class, 'uploadImage'])->middleware('throttle:admin-mutations');
+
+            // Banners
+            Route::get('banners', [AdminBannerController::class, 'index']);
+            Route::post('banners', [AdminBannerController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('banners/{banner}', [AdminBannerController::class, 'show']);
+            Route::match(['put', 'patch'], 'banners/{banner}', [AdminBannerController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('banners/{banner}', [AdminBannerController::class, 'destroy'])->middleware('throttle:admin-mutations');
+            Route::post('banners/{banner}/image', [AdminBannerController::class, 'uploadImage'])->middleware('throttle:admin-mutations');
 
             // Analytics
             Route::get('analytics/overview', [AnalyticsController::class, 'overview']);
