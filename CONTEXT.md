@@ -13,8 +13,10 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `131 passed`, `606 assertions`.
+- Current backend test result: ✅ `166 passed`, `740 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
+- Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
+- Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -166,12 +168,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":131,"passed":131,"assertions":606,"duration_ms":29885}
+{"tool":"phpunit","result":"passed","tests":166,"passed":166,"assertions":740,"duration_ms":54457}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), and Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), and Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests).
 
 ## Git State
 
@@ -717,6 +719,76 @@ Implemented a comprehensive notification system using Laravel's native notificat
 - Rich notification actions (buttons in email)
 - In-app notification center with filtering/search
 
+### Phase 6 - Product Reviews & Ratings + Wishlist
+
+**Status: ✅ Complete**
+
+#### Audit outcome (read this before touching wishlist/reviews)
+- **Reviews did not exist at all**: no model, table, controller, route, test, or frontend component. Only legacy denormalized columns `products.rating` (decimal 3,2 default 0) and `products.reviews_count` (uint default 0), populated with random values by `ProductFactory` and rendered by `ProductResource` (`rating`/`reviews` fields) plus sort-by-rating.
+- **Wishlist already existed end-to-end and was NOT rebuilt**: `Wishlist`/`WishlistItem` models, `2026_09_16_154620/21` migrations (with `unique[wishlist_id, product_id]`), guest (`guest_token`) + authenticated (`user_id`) resolution in `WishlistController`, `WishlistResource` (`token`/`ids`/`products`), public `GET /wishlist`, `POST /wishlist/items`, `DELETE /wishlist/items/{productId}` routes, and frontend connection via `useUiStore` (`loadWishlist` on app boot, optimistic toggle + server sync). Phase 6 only fixed gaps (see below).
+- Dead code found and removed: `frontend/src/store/wishlistStore.ts` (local-only scaffold, superseded by `useUiStore`). The legacy `components/ui/ProductCard.tsx` (used by `ProductRail`) was still wired to the dead store; it now uses `useUiStore` like the main product card.
+
+#### Database
+- New migration `2026_09_22_000000_create_reviews_table.php` creates `reviews`: `id`, `user_id` FK cascade, `product_id` FK cascade, `rating` unsigned tiny int, `title` varchar(120) nullable, `body` text, `status` varchar(20) default `pending` (indexed), `verified_purchase` boolean default false, timestamps, `unique[user_id, product_id]` (one active review per customer per product; editing updates in place), `index[product_id, status]` for public listings, and a `CHECK (rating >= 1 AND rating <= 5)` constraint added via `DB::statement` (`Blueprint::check()` does not exist in this Laravel version).
+- No historical migrations were rewritten. The legacy `products.rating` / `products.reviews_count` columns are now maintained from approved reviews (see service) instead of holding seed data.
+
+#### Review architecture
+- Model `App\Models\Review` (`STATUSES = pending/approved/rejected`, `HasFactory`, casts `rating => integer`, `verified_purchase => boolean`). `$fillable` covers only `user_id/product_id/rating/title/body`; `status` and `verified_purchase` are server-managed and assigned directly by the service, never mass-assigned from requests.
+- Relations added: `Product::reviews()`, `User::reviews()`.
+- Factory `Database\Factories\ReviewFactory` with `approved()` / `rejected()` states.
+- Policy `App\Policies\ReviewPolicy`: `update`/`delete` restricted to the review author (auto-discovered by naming convention, enforced via `Gate::authorize`). Moderation is admin-only through the management controller + existing `can:create,Product` admin gate.
+
+#### Purchase verification (server-side, never trusts the client)
+- `ReviewService::eligibility()` derives everything from `order_items` joined to `orders`:
+  - already reviewed → `eligible: false`, reason "already reviewed" (create path → 422);
+  - no order item for this user+product in any order → `purchased: false` (create path → 403);
+  - purchased but no `status = delivered` AND `payment_status = paid` row → 422 "once your order is delivered".
+- Canonical status values used: `Order::STATUSES` (`delivered` is the completion state, same value returns require) plus `payment_status = paid`. Guest orders (null `user_id`) can never satisfy the check.
+- No `verified_purchase`, `user_id`, or `status` input is accepted: `StoreReviewRequest`/`UpdateReviewRequest` only permit `rating/title/body`, and `validated()` output drops everything else. The stored `verified_purchase` flag is always true for created reviews (eligibility implies purchase) and is the only thing the UI may display as a "Verified purchase" badge.
+
+#### Moderation workflow
+- New reviews are created `pending` and are invisible publicly.
+- Editing an approved review resets it to `pending` (no bait-and-switch).
+- Admins approve/reject via `PATCH /api/v1/admin/reviews/{review}` (`ModerateReviewRequest`: `decision in approved/rejected`).
+- Public listing/summary query `status = approved` only.
+
+#### Aggregation
+- `ReviewService::summary()` returns `{count, average, distribution{1..5}}` over approved reviews in a single grouped query; `approvedList()` eager-loads `user,product` (no N+1).
+- `refreshProductAggregates()` writes approved count/average back to `products.reviews_count` / `products.rating` after every create/update/delete/moderate, so listings, rating sort, and `ProductResource` stay consistent. `ProductController`/`ProductResource` themselves were not changed.
+
+#### API routes (`/api/v1`)
+- Public: `GET products/{product}/reviews` (approved, paginated, `per_page` default 10), `GET products/{product}/reviews/summary`. Inactive/missing products → 404 (same rule as product detail). Route binding is by product slug.
+- Authenticated: `GET products/{product}/reviews/mine` (own review or 404), `GET products/{product}/reviews/eligibility` (`{eligible, reason, hasReviewed, verifiedPurchase}`), `POST products/{product}/reviews` → 201, `PUT|PATCH reviews/{review}`, `DELETE reviews/{review}` (owner only, else 403).
+- Admin (`auth:sanctum` + `can:create,Product`): `GET admin/reviews` (`status` filter all/pending/approved/rejected, `per_page` default 50), `GET admin/reviews/{review}`, `PATCH admin/reviews/{review}`.
+- Wishlist routes unchanged. One behavior change: `POST /wishlist/items` now returns 422 for inactive products (`abort_unless($product->is_active, 422)`); duplicates still resolve to a single row via `firstOrCreate` + the DB unique constraint (second POST returns 200, first 201).
+
+#### Resources / requests
+- New `ReviewResource`: `id/rating/title/body/status/verifiedPurchase/customerName/productId(product external_id)/productSlug/productName/createdAt/updatedAt`. No user ids, no emails, no internal notes.
+- New `StoreReviewRequest` (`rating required|integer|1-5`, `title nullable|max:120`, `body required|max:2000`), `UpdateReviewRequest` (sometimes variants), `Admin\ModerateReviewRequest` (`decision in approved/rejected`).
+
+#### Frontend (design preserved, no new design system)
+- New `frontend/src/components/product/Reviews.tsx`: summary card (average, star bar, count, 1–5 distribution bars), sign-in prompt for guests, ineligibility reason note, own-review card (edit/delete, pending-mod-eration note), validated form with interactive star input reusing `Rating`/`Button`/`Field`/`Input`/`SectionHeading`/`Spinner`/`EmptyState` primitives, approved list with "Show more" pagination, "Verified purchase" badge rendered only from the backend flag. Mounted on `ProductPage` between the product grid and the Related section with an `#reviews` anchor.
+- New `frontend/src/pages/admin/AdminReviewsPage.tsx` (route `/admin/reviews`, lazy-loaded in `App.tsx`): status filter (defaults to pending), approve/reject buttons, customer/product links, same admin guard/nav/empty-state patterns as the other admin pages. "Reviews" links added to all three existing admin page headers and to the AccountPage admin shortcut cards.
+- `AccountPage` delivered order lines now show a "Review" link to `/product/{slug}#reviews` next to "Return".
+- Wishlist UI needed no new components: `ProductCard`, product detail heart, and `WishlistPage` already talk to the backend through `useUiStore`; the only fix was migrating the legacy rail card off the deleted scaffold store.
+- Guest wishlist behavior intentionally kept public (token-based, pre-existing design); customer isolation is enforced server-side by user/token resolution.
+
+#### Tests
+- New `backend/tests/Feature/Phase6ReviewsWishlistTest.php` — **35 tests**: eligible create (201, pending, verified), unauthenticated 401, never-purchased 403, undelivered 422, unpaid 422, duplicate 422, rating 0/6/3.5 rejected, body required + title max, edit own, approved-edit → pending, edit/delete another's → 403, delete own, status/user_id/verified_purchase tampering ignored, pending/rejected hidden, approved visible without email leakage, summary counts/average/distribution over mixed statuses, inactive/missing product 404s, admin approve/reject/list-filter, non-admin 403 + guest 401, mine/eligibility endpoints, plus 9 wishlist tests (guest flow, auth add/list, duplicate single row, remove, cross-customer isolation, inactive 422, unknown product 422, unknown remove 404).
+- Full suite: `166 passed (740 assertions)` — 131 pre-existing + 35 new, zero failures.
+- Frontend: `npm run build` ✅ (vite 7.3.6, 2382 modules, `dist/index.html` 1,897.12 kB, gzip 1,044.88 kB).
+- `vendor/bin/pint --dirty --format agent` ✅ clean.
+
+#### Known limitations / follow-ups
+- Review listing sort is newest-first only; no helpfulness votes or sorting options.
+- No review notifications/emails (Phase 5 untouched by design).
+- Product `rating`/`reviews_count` seed values in existing dev databases predate the maintenance logic; fresh `migrate:fresh --seed` or a re-save resolves them.
+- Wishlist `show` still materializes a row per new guest token (pre-existing behavior, unchanged).
+- `products/{product}` show response does not embed reviews; the product page fetches the two review endpoints separately (keeps the listing payload lean).
+
+#### Next recommended phase
+- Per the roadmap notes in Phase 5: SMS/WhatsApp provider integrations, real-time (Reverb/WebSocket) notifications, notification preferences. Do not start them without an explicit phase brief.
+
 ## Frontend Architecture
 
 The frontend is a React SPA with route-level lazy loading.
@@ -1240,6 +1312,8 @@ Feature tests currently cover:
 - notification idempotency (duplicate payment event, repeated courier sync, identical status update)
 - customer and admin notification endpoints, pagination, and authorization
 - notification database persistence, email construction, and payload hygiene
+- review creation/visibility/aggregation/moderation/ownership backed by delivered+paid order checks
+- wishlist add/remove/list/isolation/inactive-product handling for guest and authenticated flows
 
 When adding backend behavior, add or update feature tests first/alongside the implementation.
 
@@ -1321,6 +1395,9 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 63 | Admin notification API | ✅ | category filter `admin_%` on a `text` data column (`data::json->>'category'`) applied to all four endpoints |
 | 64 | Customer notification API | ✅ | list/pagination, unread count, mark one, mark all, owner-scoped |
 | 65 | Phase 5 test coverage | ✅ | `Phase5NotificationTest`, 35 feature tests through real flows; suite total 131 passed (606 assertions) |
+| 66 | Product reviews & ratings | ✅ | `reviews` table, `ReviewService` purchase verification, moderation, aggregates; customer + admin APIs; product page UI; admin moderation page |
+| 67 | Wishlist completion | ✅ | backend already existed (guest+auth, unique constraint); added inactive-product guard, connected all UI to backend, removed dead scaffold store, 9 feature tests |
+| 68 | Phase 6 test coverage | ✅ | `Phase6ReviewsWishlistTest`, 35 feature tests; suite total 166 passed (740 assertions) |
 
 Legend:
 

@@ -5,6 +5,7 @@ import { useCatalogStore } from "@/store/catalogStore";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Rating } from "@/components/product/Rating";
+import { Reviews } from "@/components/product/Reviews";
 import { Button, EmptyState, Price, QuantityStepper, SectionHeading } from "@/components/ui/primitives";
 import { useCartStore } from "@/store/cartStore";
 import { useUiStore } from "@/store/uiStore";
@@ -248,6 +249,9 @@ export default function ProductPage() {
           </div>
         </div>
       </div>
+
+      {/* Reviews */}
+      <Reviews slug={product.slug} productName={product.name} />
 
       {/* Related */}
       <section className="mx-auto max-w-[1440px] px-4 pb-16 sm:px-6 lg:px-10 lg:pb-24" aria-labelledby="related-heading">

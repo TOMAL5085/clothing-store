@@ -1,30 +1,33 @@
 <?php
 
-use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AddressController;
-use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
 use App\Http\Controllers\Api\V1\Admin\CancellationManagementController;
+use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
 use App\Http\Controllers\Api\V1\Admin\OrderManagementController;
 use App\Http\Controllers\Api\V1\Admin\ProductManagementController;
 use App\Http\Controllers\Api\V1\Admin\RefundManagementController;
 use App\Http\Controllers\Api\V1\Admin\ReturnManagementController;
+use App\Http\Controllers\Api\V1\Admin\ReviewManagementController;
 use App\Http\Controllers\Api\V1\Admin\ShipmentController;
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\Notifications\AdminNotificationController;
 use App\Http\Controllers\Api\V1\Notifications\NotificationController;
-use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderCancellationController;
+use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderReturnController;
 use App\Http\Controllers\Api\V1\OrderTrackingController;
 use App\Http\Controllers\Api\V1\OtpController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductReviewController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\SslCommerzController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\WishlistController;
+use App\Models\Product;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -35,6 +38,8 @@ Route::prefix('v1')->group(function () {
     Route::get('categories', [CategoryController::class, 'index']);
     Route::get('products', [ProductController::class, 'index']);
     Route::get('products/featured', [ProductController::class, 'featured']);
+    Route::get('products/{product}/reviews', [ProductReviewController::class, 'index']);
+    Route::get('products/{product}/reviews/summary', [ProductReviewController::class, 'summary']);
     Route::get('products/{product}', [ProductController::class, 'show']);
     Route::get('products/{product}/related', [ProductController::class, 'related']);
 
@@ -78,13 +83,20 @@ Route::prefix('v1')->group(function () {
         // Tracking
         Route::get('orders/{order}/tracking', [OrderTrackingController::class, 'show']);
 
+        // Product reviews
+        Route::get('products/{product}/reviews/mine', [ProductReviewController::class, 'mine']);
+        Route::get('products/{product}/reviews/eligibility', [ProductReviewController::class, 'eligibility']);
+        Route::post('products/{product}/reviews', [ProductReviewController::class, 'store']);
+        Route::match(['put', 'patch'], 'reviews/{review}', [ProductReviewController::class, 'update']);
+        Route::delete('reviews/{review}', [ProductReviewController::class, 'destroy']);
+
         // Notifications
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
         Route::post('notifications/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
 
-        Route::middleware('can:create,'.\App\Models\Product::class)->prefix('admin')->group(function () {
+        Route::middleware('can:create,'.Product::class)->prefix('admin')->group(function () {
             Route::get('customers', [CustomerManagementController::class, 'index']);
             Route::get('customers/{customer}', [CustomerManagementController::class, 'show']);
             Route::patch('customers/{customer}/status', [CustomerManagementController::class, 'updateStatus']);
@@ -103,6 +115,9 @@ Route::prefix('v1')->group(function () {
             Route::post('returns/{returnRequest}/received', [ReturnManagementController::class, 'received']);
             Route::get('refunds', [RefundManagementController::class, 'index']);
             Route::patch('refunds/{refund}', [RefundManagementController::class, 'update']);
+            Route::get('reviews', [ReviewManagementController::class, 'index']);
+            Route::get('reviews/{review}', [ReviewManagementController::class, 'show']);
+            Route::patch('reviews/{review}', [ReviewManagementController::class, 'update']);
 
             // Shipping
             Route::post('orders/{order}/shipment', [ShipmentController::class, 'store']);

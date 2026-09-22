@@ -2,13 +2,19 @@ import { Link } from "react-router-dom";
 import { Heart } from "lucide-react";
 import type { Product } from "@/data/products";
 import { Price, Badge } from "@/components/ui/primitives";
-import { useWishlistStore } from "@/store/wishlistStore";
+import { useUiStore } from "@/store/uiStore";
 import { cn } from "@/utils/cn";
 
 interface ProductCardProps { product: Product; className?: string; }
 export function ProductCard({ product, className }: ProductCardProps) {
-  const wished = useWishlistStore((s) => s.ids.includes(product.id));
-  const toggleWish = useWishlistStore((s) => s.toggle);
+  const wishlist = useUiStore((s) => s.wishlist);
+  const toggleWishlist = useUiStore((s) => s.toggleWishlist);
+  const pushToast = useUiStore((s) => s.pushToast);
+  const wished = wishlist.includes(product.id);
+  const toggleWish = () => {
+    toggleWishlist(product.id);
+    pushToast(wished ? `${product.name} removed from wishlist` : `${product.name} saved to wishlist`);
+  };
   return <article className={cn("group", className)}>
     <Link to={`/product/${product.slug}`} className="block" aria-label={`${product.name} — ${product.price}`}>
       <div className="relative aspect-[4/5] overflow-hidden border border-line bg-surface">

@@ -169,6 +169,12 @@ export default function AdminProductsPage() {
             Customers
           </Link>
           <Link
+            to="/admin/reviews"
+            className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim"
+          >
+            Reviews
+          </Link>
+          <Link
             to="/account"
             className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim"
           >

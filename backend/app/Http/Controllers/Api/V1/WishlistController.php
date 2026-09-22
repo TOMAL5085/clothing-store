@@ -21,6 +21,7 @@ class WishlistController extends Controller
         $data = $request->validate(['product_id' => ['required', 'string', 'exists:products,external_id'], 'wishlist_token' => ['nullable', 'uuid']]);
         $wishlist = $this->resolve($request);
         $product = Product::where('external_id', $data['product_id'])->firstOrFail();
+        abort_unless($product->is_active, 422, 'This product is no longer available.');
         $wishlist->items()->firstOrCreate(['product_id' => $product->id]);
 
         return WishlistResource::make($this->load($wishlist));

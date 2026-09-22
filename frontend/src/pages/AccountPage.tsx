@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
-import { Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Moon, Package, RotateCcw, Save, ShieldCheck, Shirt, SlidersHorizontal, Truck, XCircle } from "lucide-react";
+import { Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Moon, Package, RotateCcw, Save, ShieldCheck, Shirt, SlidersHorizontal, Star, Truck, XCircle } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import { useAuthStore, type Address, type AddressPayload } from "@/store/authStore";
 import { useOrderStore, type Order } from "@/store/orderStore";
@@ -305,6 +305,7 @@ export default function AccountPage() {
                   { icon: Shirt, label: "Admin", value: "Inventory", to: "/admin/products", hint: "Manage products and stock" },
                   { icon: Package, label: "Orders", value: "Manage", to: "/admin/orders", hint: "Fulfillment and order status" },
                   { icon: ShieldCheck, label: "Customers", value: "Manage", to: "/admin/customers", hint: "Customer account controls" },
+                  { icon: Star, label: "Reviews", value: "Moderate", to: "/admin/reviews", hint: "Approve or reject product reviews" },
                 ]
               : []),
           ].map(({ icon: Icon, label, value, to, hint }) => (
@@ -351,6 +352,15 @@ export default function AccountPage() {
                               </Link>
                               <span className="text-xs text-smoke dark:text-linen-dim">Size {line.size} x {line.qty}</span>
                               <Price amount={(line.unitPrice ?? product?.price ?? 0) * line.qty} />
+                              {order.status === "Delivered" && (line.productSlug || product) && (
+                                <Link
+                                  to={`/product/${line.productSlug ?? product?.slug}#reviews`}
+                                  className="inline-flex items-center gap-1.5 border border-line px-3 py-2 text-[10px] font-bold tracking-[0.14em] uppercase text-smoke transition-colors hover:border-ink hover:text-ink dark:border-line-dark dark:text-linen-dim dark:hover:border-linen dark:hover:text-linen"
+                                >
+                                  <Star className="h-3.5 w-3.5" aria-hidden />
+                                  Review
+                                </Link>
+                              )}
                               {order.status === "Delivered" && (
                                 <Button
                                   type="button"

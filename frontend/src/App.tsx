@@ -169,6 +169,7 @@ const ForgotPasswordPage = lazy(
 const AdminProductsPage = lazy(() => import("@/pages/admin/AdminProductsPage"));
 const AdminCustomersPage = lazy(() => import("@/pages/admin/AdminCustomersPage"));
 const AdminOrdersPage = lazy(() => import("@/pages/admin/AdminOrdersPage"));
+const AdminReviewsPage = lazy(() => import("@/pages/admin/AdminReviewsPage"));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
 const InfoRoutePage = lazy(() => import("@/pages/InfoRoutePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
@@ -264,6 +265,7 @@ export default function App() {
                 <Route path="/admin/products" element={<AdminProductsPage />} />
                 <Route path="/admin/customers" element={<AdminCustomersPage />} />
                 <Route path="/admin/orders" element={<AdminOrdersPage />} />
+                <Route path="/admin/reviews" element={<AdminReviewsPage />} />
                 <Route path="/our-story" element={<InfoRoutePage />} />
                 <Route path="/careers" element={<InfoRoutePage />} />
                 <Route path="/stores" element={<InfoRoutePage />} />
