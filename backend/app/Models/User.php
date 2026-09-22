@@ -39,6 +39,11 @@ class User extends Authenticatable
         return $this->hasMany(Review::class);
     }
 
+    public function notificationPreferences(): HasMany
+    {
+        return $this->hasMany(NotificationPreference::class);
+    }
+
     public function addresses(): HasMany
     {
         return $this->hasMany(Address::class);

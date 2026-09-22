@@ -308,6 +308,7 @@ import { useCartStore, selectCartCount } from "@/store/cartStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
 import { useNotificationStore } from "@/store/notificationStore";
+import { connectRealtime, disconnectRealtime } from "@/lib/realtime";
 import { useAuthStore } from "@/store/authStore";
 import { useEffect } from "react";
 import logoTextImg from "@/assets/imagery/TEXT-01-01.png";
@@ -356,11 +357,25 @@ export function Header() {
   const { user } = useAuthStore();
   const { unreadCount, fetchUnreadCount } = useNotificationStore();
 
-  // Fetch unread count on mount and when user changes
+  // Fetch unread count on mount and when user changes; keep the realtime
+  // subscription matched to the session. Refetch on tab focus so open
+  // tabs reconcile read state without polling.
   useEffect(() => {
     if (user) {
       fetchUnreadCount();
+      connectRealtime();
+    } else {
+      disconnectRealtime();
     }
+  }, [user, fetchUnreadCount]);
+
+  useEffect(() => {
+    if (!user) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchUnreadCount();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [user, fetchUnreadCount]);
 
   return (

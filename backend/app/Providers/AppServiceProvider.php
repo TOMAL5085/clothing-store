@@ -8,6 +8,7 @@ use App\Services\Couriers\MockCourierGateway;
 use App\Services\NotificationService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -40,6 +41,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerRateLimiters();
+        $this->registerBroadcasting();
+    }
+
+    /**
+     * Private notification channels plus the Sanctum-guarded socket auth
+     * route. Guests never reach the channel callbacks.
+     */
+    private function registerBroadcasting(): void
+    {
+        Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
+        require base_path('routes/channels.php');
     }
 
     /**

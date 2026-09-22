@@ -13,13 +13,14 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `254 passed`, `1203 assertions`.
+- Current backend test result: ✅ `279 passed`, `1386 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
 - Phase 7 (admin analytics & reporting) is implemented and tested (`Phase7AnalyticsTest`, 32 tests).
 - Phase 8 (security hardening & auditability) is implemented and tested (`Phase8SecurityTest`, 33 tests).
 - Phase 9 (production readiness & reliability) is implemented and tested (`Phase9ReliabilityTest`, 23 tests).
+- Phase 10 (notification preferences + real-time notifications) is implemented and tested (`Phase10NotificationRealtimeTest`, 25 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -171,12 +172,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":254,"passed":254,"assertions":1203,"duration_ms":72352}
+{"tool":"phpunit","result":"passed","tests":279,"passed":279,"assertions":1386,"duration_ms":75181}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), and Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests).
 
 ## Git State
 
@@ -975,6 +976,74 @@ A hardening phase: no payment/courier/auth architecture rewritten, no new infras
 - Gateway initiation inside the checkout transaction (see above).
 - This phase does not claim "production ready" — it implements and tests the listed controls and documents the rest.
 
+#### Remaining limitations (deployment-specific, NOT implemented)
+- No WAF/CDN, external APM, SIEM, autoscaling, multi-region, automated backups, managed Redis, managed workers, or proxy TLS/HSTS in the repo.
+- Rate-limit counters are cache-store local; multi-server needs a shared store.
+- No verbose production query logging; no analytics caching.
+- Gateway initiation inside the checkout transaction (see above).
+- This phase does not claim "production ready" — it implements and tests the listed controls and documents the rest.
+
+### Phase 10 - Notification Preferences + Real-Time Notifications
+
+**Status: ✅ Complete**
+
+Built on the existing notification architecture (25 files: 23 concrete + 2 base). No payment/courier/auth rewrite, no polling, no new state library, no SMS/WhatsApp vendor.
+
+#### Audit findings (verified before changing anything)
+- **Already present, reused**: `NotificationService` with `notifyUser`/`notifyAdmins` choke points and `DB::afterCommit` dispatch; `OrderNotification`/`AdminOrderNotification` base classes (`ShouldQueue`, `via() == ['database','mail']`, `toArray()` payloads); 17 customer + 6 admin categories; customer + admin REST notification endpoints; `useNotificationStore`/`useAdminNotificationStore` (REST polling on mount, bell badge in Header); Sanctum Bearer auth; `database` queue default with `sync` in tests (`BROADCAST_CONNECTION=null` in phpunit); `can:create,Product` admin gate.
+- **Missing, added**: preference persistence/API, channel filtering, broadcast transport, channel authorization, Echo integration, preferences UI.
+- **No broadcasting existed**: no `config/broadcasting.php`, no `routes/channels.php`, no Reverb/Pusher/Echo dependencies.
+
+#### Preference schema and behavior
+- New `notification_preferences` table (migration `2026_09_22_000003`): `user_id` FK cascade, `category` (60), `in_app_enabled` / `email_enabled` / `sms_enabled` / `whatsapp_enabled` (all default true), timestamps, `unique(user_id, category)`.
+- `NotificationPreferenceService::catalog()` is the single source of truth: all 23 existing categories with display labels. Missing rows mean "all enabled", so behavior is byte-identical until a user opts out. All categories are informational-optional — no checkout/fulfillment workflow reads notifications, so no category is force-enabled (documented choice, not an oversight).
+- `sms`/`whatsapp` columns are stored but inert extension points: no vendor is wired, no channel named `sms`/`whatsapp` exists in any `via()`. Unknown future categories pass through unfiltered so new notification types keep working until catalogued; unknown *channels* default to suppressed (secure default).
+
+#### Preference API
+- `GET /api/v1/notification-preferences` → all 23 categories with effective flags for the caller only.
+- `PUT /api/v1/notification-preferences` with `{preferences: [{category, in_app_enabled?, email_enabled?, sms_enabled?, whatsapp_enabled?}]}` → upserts the listed categories (omitted ones keep state), returns the full effective list. `UpdateNotificationPreferencesRequest` rejects unknown categories (`Rule::in` over the catalog), unknown fields (after-hook), and non-booleans. There is no user parameter anywhere, so cross-customer writes are structurally impossible.
+
+#### Channel filtering (one centralized mechanism)
+- `NotificationPreferenceService::effectiveChannels()` is called from `via()` in **both base classes only** — no concrete class changed. `database` + `broadcast` share the in-app flag (broadcast only feeds the bell); `mail` uses the email flag. Non-user notifiables keep full delivery. `ShouldQueue`, `DB::afterCommit`, and duplicate/idempotency behavior are untouched (`Notification::fake()` never invokes `via()`, so all Phase 5/9 tests still pass unmodified).
+
+#### Real-time transport
+- Backend pushes over the Pusher protocol via the framework `pusher` broadcast driver (`pusher/pusher-php-server ^7.3`, the only new composer dependency). `laravel/reverb` could NOT be installed: every 1.x release requires `guzzlehttp/psr7 ^2.6`, which conflicts with the locked `guzzlehttp/guzzle 8.2` → `psr7 ^3.1` chain (verified via composer; downgrading risked the framework HTTP client). The wire protocol is identical, so any Pusher-protocol server (Reverb, soketi) works; this is documented, not hidden.
+- `via()` gains `'broadcast'` for everyone (subject to the same preference filter). `broadcastOn()`: customers → private `App.Models.User.{id}`; admins → shared private `admin.notifications`. `broadcastAs()`: `notification.created` (Echo listens `.notification.created`). `broadcastWith()`: explicit allowlist only (type/title/message/category/order_number[/customer_name]/action_url/read_at) — no emails, tokens (other than the pre-existing owner checkout_token deep link also present in the DB record and order emails), payment data, or secrets.
+- Ordering guarantee: `via()` order is `database, mail, broadcast` and the sender delivers sequentially, so the DB record (source of truth) always persists before the socket event. Queued `ShouldQueue` notifications broadcast from the worker after commit; multiple tabs receive the same event safely (broadcasts never create rows).
+- `routes/channels.php`: user channel checks `(int)$user->id === (int)$id`; admin channel requires `isAdmin() && isActive()`. Socket auth route `POST /broadcasting/auth` via `Broadcast::routes(['middleware' => ['auth:sanctum']])` — guests 401 before callbacks run. Note: channel callbacks live on the boot-time default driver's broadcaster instance (framework behavior); deployments must keep a fixed broadcast driver, as documented.
+- `config/broadcasting.php` created (default `null`, `log` for driverless dev, `pusher` toward env-configured host). `.env.example` documents `BROADCAST_CONNECTION=log` default plus commented `PUSHER_*` vars. `broadcasting/auth` added to CORS paths. Tests run on `null` (already the phpunit default) — no socket server needed.
+
+#### Frontend real-time flow
+- New `laravel-echo@2.5.0` + `pusher-js@8.6.0` (only new npm dependencies). New `src/lib/realtime.ts`: `connectRealtime()` (auth-gated, idempotent, never throws) subscribes the user channel and, for admins, the admin channel; on `.notification.created` it refetches the unread count and refetches page 1 when on `/notifications` — no optimistic inserts, backend stays authoritative. `disconnectRealtime()` runs on logout/account change. Header wires connect on user change plus a `visibilitychange` unread refetch for cross-tab read consistency. Socket failure degrades to plain HTTP silently.
+- `ApiError` gained `authToken()`-backed realtime auth (Bearer header to the auth endpoint).
+- Preferences UI: new `Notifications` tab in AccountPage rendering `NotificationPreferences.tsx` (existing Field/Input/Button/Spinner/EmptyState primitives, accent-bronze checkboxes): per-category In-app + Email toggles saved immediately via PUT with revert-on-error toast; admin sections split customer vs store alerts; SMS/WhatsApp rendered disabled as "soon".
+- `frontend/.env.example` documents `VITE_REALTIME_ENABLED`, `VITE_REVERB_*`, and optional `VITE_BROADCAST_AUTH_ENDPOINT` (defaults derive from `VITE_API_URL`).
+
+#### Files changed
+- New backend: migration `2026_09_22_000003`, `NotificationPreference` model + factory, `NotificationPreferenceService`, `NotificationPreferenceController`, `UpdateNotificationPreferencesRequest`, `NotificationPreferenceResource`, `config/broadcasting.php`, `routes/channels.php`, `Phase10NotificationRealtimeTest`.
+- Modified backend: `OrderNotification` + `AdminOrderNotification` (`via` filter, `broadcastOn/As/With`), `User` (relation), `routes/api.php` (preference routes), `AppServiceProvider` (broadcast routes + channel loading), `config/cors.php`, `.env.example`, `composer.json`/`composer.lock` (pusher-php-server only).
+- New frontend: `src/lib/realtime.ts`, `src/components/account/NotificationPreferences.tsx`.
+- Modified frontend: `notificationStore` untouched (reused as-is); `Header.tsx` (connect + focus refetch), `AccountPage.tsx` (Notifications tab), `lib/api.ts` (`authToken`), `package.json`/`package-lock.json` (echo + pusher-js), `.env.example`.
+
+#### Tests
+- New `backend/tests/Feature/Phase10NotificationRealtimeTest.php` — **25 tests, 183 assertions**: preference defaults (23 categories, all true); auth required; update own + untouched-default preservation; caller scoping with smuggled `user_id` ignored; invalid category/field/boolean rejections; DB unique constraint; defaults preserve delivery; in-app-off suppresses DB row; email-off removes mail channel only; all-off sends nothing; per-recipient admin filtering; `via()` default/filtered; private user + admin channel names; `broadcastAs`; minimal safe payload (incl. checkout_token deep-link parity note); socket-auth allows own / rejects other / rejects guests / protects admin channel (pusher driver with local dummy creds, no network); broadcast creates no extra rows; database-before-broadcast ordering; `ShouldQueue` intact.
+- Full suite: `279 passed (1386 assertions)` — 254 pre-existing + 25 new, zero failures.
+- Frontend: `npm run build` ✅ (vite 7.3.6, 2390 modules, `dist/index.html` 2,004.50 kB, gzip 1,072.87 kB, ~11.4s).
+- `vendor/bin/pint --dirty --format agent` ✅ clean.
+
+#### Environment variables / deployment notes
+- Backend: `BROADCAST_CONNECTION` (`null` test, `log` default dev, `pusher` for live); `PUSHER_APP_ID/KEY/SECRET/HOST/PORT/SCHEME` toward the socket server; run a Pusher-protocol server (Reverb/soketi) plus `queue:work` (broadcasts of queued notifications emit from the worker). QUEUE_CONNECTION stays `database`.
+- Frontend: `VITE_REALTIME_ENABLED=false` disables sockets entirely; `VITE_REVERB_*` point Echo at the server; auth endpoint defaults to `<origin>/broadcasting/auth`.
+
+#### Deferred SMS/WhatsApp work
+- Schema columns + API fields + UI placeholders exist; no vendor selected, no channel registered, no sending code. Next phase needs: provider selection, `sms`/`whatsapp` channel classes honoring the stored flags, credential handling, and delivery tests.
+
+#### Remaining limitations
+- No dedicated admin notifications page exists (the admin store was already unused); admin realtime currently feeds the existing admin store's unread count.
+- `laravel/reverb` server package not installed (documented dependency conflict above); any Pusher-protocol server works.
+- Refetch-on-event (not optimistic prepend) trades one extra HTTP call for zero desync risk.
+- This phase does not claim full production realtime coverage — socket server operation/scaling stays a deployment concern.
+
 ## Frontend Architecture
 
 The frontend is a React SPA with route-level lazy loading.
@@ -1593,6 +1662,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 72 | Phase 8 test coverage | ✅ | `Phase8SecurityTest`, 33 tests; suite total 231 passed (1125 assertions) |
 | 73 | Production readiness & reliability | ✅ | health checks, request IDs, safe errors, timeouts, scheduler, app:check, pagination caps; see Phase 9 section |
 | 74 | Phase 9 test coverage | ✅ | `Phase9ReliabilityTest`, 23 tests; suite total 254 passed (1203 assertions) |
+| 75 | Notification preferences + real-time | ✅ | preference schema/API, channel filtering, Reverb/Echo private channels, Account preferences tab; see Phase 10 section |
+| 76 | Phase 10 test coverage | ✅ | `Phase10NotificationRealtimeTest`, 25 tests; suite total 279 passed (1386 assertions) |
 
 Legend:
 

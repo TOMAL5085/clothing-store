@@ -17,6 +17,10 @@ function token() {
   return localStorage.getItem("jaaj-api-token");
 }
 
+export function authToken() {
+  return token();
+}
+
 export function hasApiToken() {
   return Boolean(token());
 }

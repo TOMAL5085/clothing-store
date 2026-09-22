@@ -9,6 +9,7 @@ import { useThemeStore } from "@/store/themeStore";
 import { useCurrencyStore } from "@/store/currencyStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { Button, EmptyState, Field, Input, Price } from "@/components/ui/primitives";
+import { NotificationPreferences } from "@/components/account/NotificationPreferences";
 import { usePageTitle } from "@/utils/usePageTitle";
 import { cn } from "@/utils/cn";
 
@@ -18,6 +19,7 @@ const TABS = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
   { id: "addresses", label: "Addresses" },
+  { id: "notifications", label: "Notifications" },
 ] as const;
 
 const emptyAddress: AddressPayload = {
@@ -481,6 +483,10 @@ export default function AccountPage() {
             </ul>
           )}
         </div>
+      )}
+
+      {tab === "notifications" && user && (
+        <NotificationPreferences isAdmin={user.role === "admin"} />
       )}
 
       {tab === "profile" && (

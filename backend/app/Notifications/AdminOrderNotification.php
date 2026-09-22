@@ -3,6 +3,10 @@
 namespace App\Notifications;
 
 use App\Models\Order;
+use App\Models\User;
+use App\Services\NotificationPreferenceService;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -22,7 +26,14 @@ abstract class AdminOrderNotification extends Notification implements ShouldQueu
 
     public function via(object $notifiable): array
     {
-        return ['database', 'mail'];
+        $channels = ['database', 'mail', 'broadcast'];
+
+        if ($notifiable instanceof User) {
+            return app(NotificationPreferenceService::class)
+                ->effectiveChannels($notifiable, $this->category, $channels);
+        }
+
+        return $channels;
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -61,4 +72,43 @@ abstract class AdminOrderNotification extends Notification implements ShouldQueu
     }
 
     abstract protected function getNotificationType(): string;
+
+    /**
+     * All admins share one private channel authorized to admin users only
+     * (routes/channels.php). Per-recipient preference filtering still
+     * happens in via(), so an admin who disabled in-app delivery simply
+     * never emits here while others do.
+     *
+     * @return list<Channel>
+     */
+    public function broadcastOn(): array
+    {
+        return [new PrivateChannel('admin.notifications')];
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'notification.created';
+    }
+
+    /**
+     * Explicit minimal broadcast payload. Customer emails stay out of the
+     * socket payload even though admins may see them in the persisted
+     * record; the frontend refetches details over HTTPS when needed.
+     *
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'type' => $this->getNotificationType(),
+            'title' => $this->title,
+            'message' => $this->message,
+            'category' => $this->category,
+            'order_number' => $this->order->number,
+            'customer_name' => $this->order->user?->name ?? 'Guest',
+            'action_url' => $this->actionUrl,
+            'read_at' => null,
+        ];
+    }
 }

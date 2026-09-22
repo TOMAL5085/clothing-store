@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
+use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Notifications\AdminNotificationController;
 use App\Http\Controllers\Api\V1\Notifications\NotificationController;
 use App\Http\Controllers\Api\V1\OrderCancellationController;
@@ -97,6 +98,10 @@ Route::prefix('v1')->group(function () {
         Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
         Route::post('notifications/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+
+        // Notification preferences (caller's own rows only)
+        Route::get('notification-preferences', [NotificationPreferenceController::class, 'index']);
+        Route::put('notification-preferences', [NotificationPreferenceController::class, 'update']);
 
         Route::middleware('can:create,'.Product::class)->prefix('admin')->group(function () {
             Route::get('customers', [CustomerManagementController::class, 'index']);
