@@ -78,3 +78,11 @@ This local PHP install must have `pdo_pgsql` enabled. Without a PDO database dri
 - [Architecture](docs/architecture.md)
 - [Database](docs/database.md)
 - [API](docs/api.md)
+
+## Production Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full deploy sequence (backend,
+workers, scheduler, storage, payments, HTTPS, rollback) and
+[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) for pre-flight, smoke
+checks, backup, and monitoring checklists. Validate any environment with
+`php artisan app:check` from `backend/`.

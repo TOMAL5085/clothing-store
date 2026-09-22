@@ -25,8 +25,14 @@ class CheckApp extends Command
 
         $this->info('Application:');
         $check('APP_URL is set', (bool) config('app.url'));
+        $check('APP_URL is a valid http(s) URL', $this->validUrl((string) config('app.url')));
         $check('APP_KEY is set', (bool) config('app.key'));
         $check('Debug mode is off for production', ! $this->isProduction() || ! config('app.debug'), 'APP_DEBUG='.var_export((bool) config('app.debug'), true));
+
+        if ($this->isProduction()) {
+            $check('APP_URL is not localhost in production', ! $this->isLocalUrl((string) config('app.url')), (string) config('app.url'));
+            $check('Frontend origins are not localhost in production', ! $this->originsAreLocal(), implode(',', $this->frontendOrigins()));
+        }
 
         $this->info('Database:');
         $connection = (string) config('database.default');
@@ -50,6 +56,16 @@ class CheckApp extends Command
             'CACHE_STORE='.config('cache.default')
         );
         $check('Failed jobs use the database driver', str_starts_with((string) config('queue.failed.driver'), 'database'));
+
+        $this->info('Broadcasting & storage:');
+        // A null/empty driver means broadcasting is disabled (test default).
+        $broadcastDriver = config('broadcasting.default') ?? 'null';
+        $check(
+            'Broadcast driver is known',
+            in_array($broadcastDriver, ['null', 'log', 'pusher', 'ably', 'redis'], true),
+            'BROADCAST_CONNECTION='.$broadcastDriver
+        );
+        $this->warnIfMissingStorageLink();
 
         $this->info('Mail:');
         $check('Mailer is configured', (bool) config('mail.default'), 'MAIL_MAILER='.config('mail.default'));
@@ -94,5 +110,42 @@ class CheckApp extends Command
         }
 
         return array_values(array_filter((array) $configured));
+    }
+
+    private function validUrl(string $url): bool
+    {
+        return filter_var($url, FILTER_VALIDATE_URL) !== false
+            && in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true);
+    }
+
+    private function isLocalUrl(string $url): bool
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        return $host === '' || $host === 'localhost' || $host === '127.0.0.1' || $host === '[::1]' || str_ends_with($host, '.local');
+    }
+
+    private function originsAreLocal(): bool
+    {
+        foreach ($this->frontendOrigins() as $origin) {
+            if ($this->isLocalUrl($origin)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The public/storage symlink is environment-specific, so a missing
+     * link is a warning rather than a failure — CMS/banner images need it.
+     */
+    private function warnIfMissingStorageLink(): void
+    {
+        $link = public_path('storage');
+
+        if (! is_link($link) && ! is_dir($link)) {
+            $this->warn('  [WARN] public/storage link is missing — run php artisan storage:link so uploaded CMS/banner images resolve.');
+        }
     }
 }

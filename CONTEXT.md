@@ -13,7 +13,7 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `391 passed`, `1810 assertions`.
+- Current backend test result: ✅ `404 passed`, `1847 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
@@ -24,6 +24,7 @@ This project is an ecommerce website named `clothing-store`.
 - Phase 11 (SMS/WhatsApp delivery foundation, mock drivers only, no vendor selected) is implemented and tested (`Phase11MessagingDeliveryTest`, 25 tests).
 - Phase 12 (server-side marketing & conversion tracking foundation, no vendor selected) is implemented and tested (`Phase12MarketingTrackingTest`, 43 tests).
 - Phase 13 (CMS + banner/slider management) is implemented and tested (`Phase13CmsBannerTest`, 44 tests).
+- Phase 14 (production deployment & infrastructure readiness) adds deployment docs, env contract, and readiness tests (`Phase14ProductionReadinessTest`, 13 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -175,12 +176,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":391,"passed":391,"assertions":1810,"duration_ms":140101}
+{"tool":"phpunit","result":"passed","tests":404,"passed":404,"assertions":1847,"duration_ms":141000}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests), and Phase 11 (`Phase11MessagingDeliveryTest`, 25 dedicated feature tests), and Phase 12 (`Phase12MarketingTrackingTest`, 43 dedicated feature tests), and Phase 13 (`Phase13CmsBannerTest`, 44 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests), and Phase 10 (`Phase10NotificationRealtimeTest`, 25 dedicated feature tests), and Phase 11 (`Phase11MessagingDeliveryTest`, 25 dedicated feature tests), and Phase 12 (`Phase12MarketingTrackingTest`, 43 dedicated feature tests), and Phase 13 (`Phase13CmsBannerTest`, 44 dedicated feature tests), and Phase 14 (`Phase14ProductionReadinessTest`, 13 dedicated feature tests).
 
 ## Git State
 
@@ -1243,7 +1244,8 @@ Backend-controlled content foundation. No third-party CMS, no WYSIWYG package, n
 
 #### Tests
 - New `backend/tests/Feature/Phase13CmsBannerTest.php` — **44 tests**: admin CRUD/publish/archive/delete for both entities; customer 403 + guest 401 (incl. PATCH/DELETE); duplicate keys; invalid type/status/schedule (incl. reversed and end-without-start); future/expired/draft/archived hidden publicly; published ordering deterministic; admin metadata absent publicly; dangerous CTAs rejected; audit rows written; upload stored via fake disk with public URL; invalid/oversized uploads rejected; path-escape safety; replace/delete cleanup; cross-customer modification blocked; verbatim HTML body; secret scan.
-- Full suite: `391 passed (1810 assertions)` — 347 pre-existing + 44 new, zero failures.
+- Full suite: `391 passed (1810 assertions)` - 347 pre-existing + 44 new, zero failures.
+- Full suite: `404 passed (1847 assertions)` - 391 pre-existing + 13 new, zero failures.
 - Frontend: `npm run build` ✅ (vite 7.3.6, `index.html` 2,030.49 kB, gzip 1,079.63 kB, ~14s).
 - `vendor/bin/pint --dirty --format agent` ✅ clean.
 - Manual smoke: `CmsSeeder` run twice (idempotent), `artisan serve` + curl verified `GET /api/v1/banners` (3 seeded slides, ordered) and `GET /api/v1/cms/content?key=site-announcement` (exact approved copy); admin create/publish/schedule/edit/archive/delete + banner upload/reorder verified through the API test flows; homepage renders from seeded records with fallbacks intact. During smoke testing, two initial filtered requests 500'd on cached Eloquent-collection unserialization, so public endpoints now cache resolved plain arrays — re-verified warm (0.07ms cache hit).
@@ -1254,6 +1256,68 @@ Backend-controlled content foundation. No third-party CMS, no WYSIWYG package, n
 - Only the announcement + hero consume CMS data; other seeded types (`promo`, `collection`, …) are API/admin-ready but not rendered anywhere yet.
 - Public cache TTL is 60s; publishes apply on next fetch after at most 60s.
 - This phase does not claim the CMS is production-hardened beyond the tested controls.
+
+#### Remaining limitations
+- Hero copy/CTAs remain hard-coded by design (`siteCopy.ts` mandate); only slide imagery is CMS-driven.
+- No image dimension validation or thumbnail generation (no processing stack added).
+- Only the announcement + hero consume CMS data; other seeded types (`promo`, `collection`, …) are API/admin-ready but not rendered anywhere yet.
+- Public cache TTL is 60s; publishes apply on next fetch after at most 60s.
+- This phase does not claim the CMS is production-hardened beyond the tested controls.
+
+### Phase 14 - Production Deployment & Infrastructure Readiness
+
+**Status: ✅ Complete**
+
+No features added, no architecture replaced. This phase turned existing
+local readiness into validated deployment artifacts: docs, env contract,
+small config hardening, readiness tests.
+
+#### Audit findings
+- Already production-sound, left untouched: `failed_jobs` table + database queue, `SendQueuedNotifications` after-commit dispatch, inventory/coupon/cancellation guards, idempotent webhooks, Sanctum bearer auth (stateless API, no session cookies in play), CORS restricted to `FRONTEND_URLS`, secret-free logs, generic prod error contract + request IDs, `/up` health route, `audit:prune` + `marketing:prune` scheduler entries, `app:check` command, no `env()` calls outside `config/` (verified by grep), frontend localhost URLs only as `??` fallbacks.
+- Gaps closed: no trusted-proxy support (URL generation behind TLS terminators), `SESSION_DRIVER=database` with no sessions table in the migration set, `app:check` missing broadcast/storage/URL-validity coverage, no deployment docs, no production smoke/rollback/backup guidance.
+
+#### Production environment contract
+- `backend/.env.example` extended additively only: commented `TRUSTED_PROXIES=` (empty default preserves direct-serve behavior). All other variables already documented with placeholders; no secrets committed, no example values that could pass as live credentials.
+- Verified `MARKETING_*`, `SMS_DRIVER`/`WHATSAPP_DRIVER`, `PAYMENT_*`, `PUSHER_*`, `VITE_*` entries are placeholders/defaults only.
+
+#### Production-safe configuration changes
+- `bootstrap/app.php`: env-driven `trustProxies()` (empty = trust none, current behavior preserved). Documented for proxy deployments in `DEPLOYMENT.md`.
+- New migration `2026_09_22_000009_create_sessions_table.php`: standard sessions table so the configured `SESSION_DRIVER=database` resolves. (The original users-table migration was found, during testing, to already create `sessions` — the duplicate was caught by the suite and removed; final migration set is clean.)
+- `CheckApp` (`app:check`) extended without changing existing pass/fail semantics: broadcast-driver allowlist, `APP_URL` must be a valid http(s) URL, production `APP_URL`/`FRONTEND_URLS` must not be localhost (fail), missing `public/storage` link warns (never fails, environment-specific). Secret values still never printed (existing test asserts).
+- Session cookies (`SESSION_SECURE_COOKIE`, `SESSION_SAME_SITE`) left at skeleton defaults: the API authenticates via Bearer tokens, so they are moot unless session flows are added later — documented.
+
+#### Deployment artifacts
+- New `DEPLOYMENT.md`: prerequisites, backend deploy sequence (install, env, `migrate --force`, `storage:link`, `app:check`, `optimize`, worker restart, scheduler cron, realtime reload, frontend relationship), `optimize`/`optimize:clear`, web-root-`backend/public` rule + SPA fallback, queue supervision + `queue:restart` on every deploy, storage/writable dirs/backups, Stripe + SSLCOMMERZ env + webhook/IPN registration (no credentials), HTTPS/proxy guidance, honest rollback procedure (code-first, database case-by-case, never blind rollback).
+- New `PRODUCTION_CHECKLIST.md`: pre-flight, deploy, post-deploy smoke checks split into locally-testable / staging-testable / production-only (payment success explicitly production-only), backup/recovery ordering, monitoring list, rollback boxes.
+- `README.md`: appended production pointer to both docs (no other changes).
+
+#### Database / migration safety
+- All migrations additive; seeders non-destructive (`updateOrCreate`, no truncates, no wipes). `DatabaseSeeder` only ensures two dev accounts + catalog + CMS seeds.
+- Fresh-database validation is continuous: the test suite runs every migration from scratch on `clothing_store_test` via RefreshDatabase (green). `php artisan migrate --force` verified clean on the dev database.
+- `php artisan optimize` verified compatible (no `env()` outside config): ran `optimize` then `optimize:clear`; no generated files committed.
+
+#### Cache / queue / realtime validation
+- CMS/banner public endpoints cache resolved arrays (Phase 13 warm-cache fix retained); rate-limiter storage unchanged (database-backed, single-node documented); queue + `failed_jobs` compatibility re-tested (dispatch → work → failed row); realtime needs no new infra (log/null default, pusher only when configured).
+
+#### Storage validation
+- `public` disk round-trip tested (put/get/delete via fake); uploaded CMS images resolve to `/storage/...` URLs (tested); entity-scoped UUID paths + orphan cleanup retained from Phase 13; S3 path needs only env changes.
+
+#### Frontend production audit
+- No hardcoded backend URLs (only `??` fallbacks), no `VITE_*` secrets, lazy routes + Suspense intact, no polling, manual payment retry only. No dependency changes. Build green.
+
+#### Web-server / static-file security
+- Documented: serve `backend/public` only; never the repo root (blocks `.env`, `vendor/`, migrations, tests); deny dotfiles; frontend hosting split (same-host SPA fallback vs static host) covered both ways.
+
+#### Tests
+- New `backend/tests/Feature/Phase14ProductionReadinessTest.php` — **13 tests**: `/up` availability, `X-Request-ID` presence + UUID shape, `app:check` fails on debug-in-prod / localhost URLs in prod / invalid APP_URL / unknown broadcast driver, admin CMS protection (403 customer incl. DELETE, 401 guest), draft visibility still enforced, payment-secret scan over product APIs, login throttle still 429s, database queue → `failed_jobs` round trip, public-disk round trip, uploaded-image public URL.
+- Full suite: `404 passed (1847 assertions)` — 391 pre-existing + 13 new, zero failures.
+- Frontend: `npm run build` ✅ (vite 7.3.6, zero TS errors; output `index.html` ~2,030 kB).
+- `vendor/bin/pint --test` ✅ clean (also ran fix pass first).
+
+#### Known limitations / external requirements
+- No cloud deployment performed; no WAF/CDN/APM/SIEM installed (all marked EXTERNAL in docs).
+- Multi-server needs a shared cache/queue store; TLS/HSTS live at the proxy; backups/restore must be scheduled outside the repo; real payment callbacks only verifiable with live provider config.
+- This phase does not claim "production ready" as a state — it delivers validated readiness artifacts and documents the rest.
 
 ## Frontend Architecture
 
@@ -1881,6 +1945,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 80 | Phase 12 test coverage | ✅ | `Phase12MarketingTrackingTest`, 43 tests; suite total 347 passed (1676 assertions) |
 | 81 | CMS + banner/slider management | ✅ | cms_contents + banners tables, admin CRUD, public APIs, hero/announcement integration, uploads on public disk; see Phase 13 section |
 | 82 | Phase 13 test coverage | ✅ | `Phase13CmsBannerTest`, 44 tests; suite total 391 passed (1810 assertions) |
+| 83 | Production deployment readiness | ✅ | DEPLOYMENT.md + checklist, env contract, trust proxies, app:check hardening; see Phase 14 section |
+| 84 | Phase 14 test coverage | ✅ | `Phase14ProductionReadinessTest`, 13 tests; suite total 404 passed (1847 assertions) |
 
 Legend:
 

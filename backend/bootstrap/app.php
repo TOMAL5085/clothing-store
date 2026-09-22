@@ -21,6 +21,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(HandleCors::class);
         $middleware->append(SecurityHeaders::class);
         $middleware->append(RequestId::class);
+        // Behind HTTPS-terminating proxies, trust only the explicitly
+        // configured hops so generated URLs use the correct scheme/host.
+        // Empty by default (direct-serve behavior preserved).
+        $middleware->trustProxies(at: array_filter(array_map(
+            'trim',
+            explode(',', (string) env('TRUSTED_PROXIES', ''))
+        )));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
