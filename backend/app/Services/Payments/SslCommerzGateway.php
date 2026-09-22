@@ -4,6 +4,7 @@ namespace App\Services\Payments;
 
 use App\Models\Order;
 use App\Models\Payment;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -58,11 +59,16 @@ class SslCommerzGateway implements PaymentGateway
 
         try {
             $response = Http::asForm()
+                ->timeout((int) config('payments.http_timeout', 15))
+                ->connectTimeout((int) config('payments.http_connect_timeout', 5))
                 ->post($this->sessionUrl(), $payload)
                 ->throw()
                 ->json();
         } catch (RequestException $exception) {
             Log::warning('sslcommerz.session_failed', ['order' => $order->number, 'status' => $exception->response?->status()]);
+            throw ValidationException::withMessages(['payment' => 'Payment initialization failed.']);
+        } catch (ConnectionException $exception) {
+            Log::warning('sslcommerz.session_timeout', ['order' => $order->number]);
             throw ValidationException::withMessages(['payment' => 'Payment initialization failed.']);
         }
 
@@ -115,14 +121,20 @@ class SslCommerzGateway implements PaymentGateway
         $storePassword = (string) config('payments.sslcommerz.store_password');
 
         try {
-            $response = Http::get($this->validationUrl(), [
-                'val_id' => $valId,
-                'store_id' => $storeId,
-                'store_passwd' => $storePassword,
-                'format' => 'json',
-            ])->throw()->json();
+            $response = Http::timeout((int) config('payments.http_timeout', 15))
+                ->connectTimeout((int) config('payments.http_connect_timeout', 5))
+                ->get($this->validationUrl(), [
+                    'val_id' => $valId,
+                    'store_id' => $storeId,
+                    'store_passwd' => $storePassword,
+                    'format' => 'json',
+                ])->throw()->json();
         } catch (RequestException $exception) {
             Log::warning('sslcommerz.validation_failed', ['tran_id' => $tranId, 'status' => $exception->response?->status()]);
+
+            return ['status' => 'INVALID', 'tran_id' => $tranId, 'val_id' => $valId, 'amount' => null, 'currency' => null];
+        } catch (ConnectionException $exception) {
+            Log::warning('sslcommerz.validation_timeout', ['tran_id' => $tranId]);
 
             return ['status' => 'INVALID', 'tran_id' => $tranId, 'val_id' => $valId, 'amount' => null, 'currency' => null];
         }

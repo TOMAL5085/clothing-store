@@ -93,7 +93,7 @@ class ReviewService
             ->where('product_id', $product->id)
             ->where('status', 'approved')
             ->latest()
-            ->paginate($perPage);
+            ->paginate(min(max($perPage, 1), 100));
     }
 
     /**

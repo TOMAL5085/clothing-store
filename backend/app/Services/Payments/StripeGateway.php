@@ -5,6 +5,7 @@ namespace App\Services\Payments;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Support\Money;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +34,8 @@ class StripeGateway implements PaymentGateway
         try {
             $response = Http::withToken($secret)
                 ->asForm()
+                ->timeout((int) config('payments.http_timeout', 15))
+                ->connectTimeout((int) config('payments.http_connect_timeout', 5))
                 ->withHeaders(['Idempotency-Key' => $payment->reference])
                 ->post('https://api.stripe.com/v1/checkout/sessions', [
                     'mode' => 'payment',
@@ -52,6 +55,9 @@ class StripeGateway implements PaymentGateway
                 ->json();
         } catch (RequestException $exception) {
             Log::warning('stripe.session_failed', ['order' => $order->number, 'status' => $exception->response?->status()]);
+            throw ValidationException::withMessages(['payment' => 'Payment initialization failed.']);
+        } catch (ConnectionException $exception) {
+            Log::warning('stripe.session_timeout', ['order' => $order->number]);
             throw ValidationException::withMessages(['payment' => 'Payment initialization failed.']);
         }
 

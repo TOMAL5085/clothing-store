@@ -24,7 +24,7 @@ class AdminNotificationController extends Controller
     {
         Gate::authorize('viewAny', Order::class);
 
-        $perPage = (int) $request->query('per_page', 20);
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
         $notifications = $request->user()->notifications()
             ->whereRaw(self::ADMIN_CATEGORY_PATTERN, [self::ADMIN_CATEGORY_BINDING])
             ->latest()

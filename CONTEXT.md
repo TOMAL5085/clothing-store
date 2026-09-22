@@ -13,12 +13,13 @@ This project is an ecommerce website named `clothing-store`.
 - Database: PostgreSQL.
 - API namespace: `/api/v1`.
 - Authentication: Laravel Sanctum token auth.
-- Current backend test result: ✅ `231 passed`, `1125 assertions`.
+- Current backend test result: ✅ `254 passed`, `1203 assertions`.
 - Phase 4A (checkout, Stripe, SSLCOMMERZ, order management) is implemented and fully tested.
 - Phase 5 (order alerts/notifications) is implemented and tested (`Phase5NotificationTest`, 35 tests).
 - Phase 6 (product reviews & ratings + wishlist completion) is implemented and tested (`Phase6ReviewsWishlistTest`, 35 tests).
 - Phase 7 (admin analytics & reporting) is implemented and tested (`Phase7AnalyticsTest`, 32 tests).
 - Phase 8 (security hardening & auditability) is implemented and tested (`Phase8SecurityTest`, 33 tests).
+- Phase 9 (production readiness & reliability) is implemented and tested (`Phase9ReliabilityTest`, 23 tests).
 - Git status: ✅ Git repository present at the project root; branch `main` tracks `origin/main`.
 
 The frontend was already implemented before backend work began. Do not rebuild, redesign, or replace the frontend. Treat the current frontend UI as approved.
@@ -170,12 +171,12 @@ php artisan test
 Latest result:
 
 ```text
-{"tool":"phpunit","result":"passed","tests":231,"passed":231,"assertions":1125,"duration_ms":67831}
+{"tool":"phpunit","result":"passed","tests":254,"passed":254,"assertions":1203,"duration_ms":72352}
 ```
 
 Status: ✅ backend test suite passes.
 
-Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests).
+Suite covers Phases 1-3 (`ProductApiTest`, `CartApiTest`, `OrderApiTest`, `AuthApiTest`, `Phase1ProductInventoryTest`, `Phase2UsersAccountsTest`, `AuthorizationApiTest`) plus Phase 4A (`Phase4CheckoutPaymentTest`, `Phase4AdminOrdersTest`), Phase 4B-1 (`Phase4BShippingTest`), Phase 4B-2 (`Phase4BTrackingTest`), Phase 4B-3A (`Phase4B3CourierFoundationTest`), Phase 4B-3B (`Phase4B3CourierShipmentCreationTest`), Phase 4B-3C (`Phase4B3CourierStatusTest`), Phase 4B-4 (`Phase4ResolutionTest`), Phase 5 (`Phase5NotificationTest`, 35 dedicated feature tests), Phase 6 (`Phase6ReviewsWishlistTest`, 35 dedicated feature tests), Phase 7 (`Phase7AnalyticsTest`, 32 dedicated feature tests), and Phase 8 (`Phase8SecurityTest`, 33 dedicated feature tests), and Phase 9 (`Phase9ReliabilityTest`, 23 dedicated feature tests).
 
 ## Git State
 
@@ -921,6 +922,59 @@ This is a hardening phase, not a penetration test and not a substitute for produ
 #### Next recommended phase
 - Per earlier roadmap notes: SMS/WhatsApp integrations, real-time (Reverb/WebSocket) updates, notification preferences. Do not start them without an explicit phase brief.
 
+### Phase 9 - Production Readiness, Reliability & Observability
+
+**Status: ✅ Complete**
+
+A hardening phase: no payment/courier/auth architecture rewritten, no new infrastructure (no Redis, APM, or vendors), no fake health checks. Every change below was justified by the audit; everything else was documented, not built.
+
+#### Audit findings (verified before changing anything)
+- **Already sound, left untouched**: `failed_jobs` table + `database-uuids` driver configured; queue defaults to `database` in prod (`sync` in tests); notifications are `ShouldQueue` and dispatched inside `DB::afterCommit`; inventory hold/release, coupon consumption, cancellation execution, and return receipt all timestamp-guarded (no double decrement/restore); refund re-finalization rejected; duplicate webhooks idempotent; checkout button disabled while processing (no double submit); route-level lazy loading + Suspense present; no frontend polling or mutation auto-retry; cart/wishlist/orders/reviews controllers all eager-load; analytics fully aggregate.
+- **Gaps closed**: `/up` existed but ran zero dependency checks; no request correlation ID; 500s rendered framework default; notification/admin/review lists and three admin indexes accepted unbounded `per_page`; `audit:prune` existed but was unscheduled; no env/config validation command; Stripe/SSLCOMMERZ HTTP calls had no timeouts (and timeouts would have escaped as 500s since only `RequestException` was caught); gateway initiation runs inside the checkout DB transaction (documented limitation, architecture preserved).
+
+#### Health / readiness
+- `/up` (already registered in `bootstrap/app.php`) now runs `CheckDatabaseHealth` via the `DiagnosingHealth` event: a DB ping covering orders, the database queue/cache stores, and failed jobs. Optional payment/courier APIs are never checked. Failure → 500 in production (exception rethrown with debug on); the response never carries DSNs or exception text.
+
+#### Queue / retry / failure
+- No new job system: `database` queue + `failed_jobs` (database-uuids) already configured. Operational contract documented: run `php artisan queue:work --tries=3 --backoff=5,15,60`; inspect with `queue:failed`, recover with `queue:retry all`, clear with `queue:flush`. Notification jobs inherit worker-level retries; permanent validation failures surface once in `failed_jobs` instead of looping.
+- Scheduler (`routes/console.php`, app timezone, `withoutOverlapping`): `audit:prune` daily, `queue:prune-failed --hours=720` monthly. Both idempotent and safe to rerun.
+
+#### Request IDs, errors, logging
+- New global `RequestId` middleware: server-generated UUID v4 per request (never accepted from clients, never used for auth), returned as `X-Request-ID`, bound into Laravel `Context` for log correlation, and echoed on error responses.
+- Production error contract (`bootstrap/app.php`, debug-off only): unexpected `api/*` failures return `{message: "Server error.", code: "INTERNAL_ERROR", request_id}` + header — no traces, paths, or env values. Validation (422), auth (401/403), 404, and 429 responses are byte-identical to before; local/test diagnostics untouched.
+- Logging unchanged by design (already minimal and secret-free); request IDs now ride along via Context. No verbose SQL logging in production; query investigation stays a local exercise (`DB::listen` in tests).
+
+#### Performance
+- Pagination caps (contract-preserving clamps, 1–100): customer + admin notification lists, review listings, admin cancellation/refund/return indexes. All other lists already capped.
+- N+1 audit: no live N+1 found (verified eager loads on products, cart, orders, tracking, wishlist, notifications, reviews, admin orders, analytics aggregates). Locked with an intentional regression test: product listing with 5 products stays within 20 queries.
+- Analytics untouched (already aggregate; no caching added — no measured need, invalidation unsafe).
+- Frontend: no changes required beyond `ApiError.requestId` plumbing (reads `x-request-id` for support diagnosis). Lazy routes, no polling, and manual payment retry were already correct. Bundle unchanged in shape (~1.92 MB single-file).
+
+#### Reliability fixes
+- Outbound payment HTTP now bounded: `payments.http_timeout` (default 15s) + `http_connect_timeout` (default 5s), env-overridable; `ConnectionException` handled on all three call sites (Stripe initiate, SSLCOMMERZ initiate + IPN validation) mapping to the existing user-safe 422 / INVALID paths with secret-free logs.
+- Known limitation documented (not rewritten): gateway session initiation still executes inside the checkout transaction, so row locks are held during provider I/O and a provider failure rolls the order back (cart intact, retry safe). The correct future fix is initiate-after-commit with reconciliation, not a bigger transaction.
+
+#### Configuration / deployment
+- New `php artisan app:check`: validates APP_URL/APP_KEY, debug-off in production, DB reachability, queue/cache driver allowlists, failed-job driver, mailer + sender, payment-driver credential presence (presence only), frontend origin allowlist. Prints OK/FAIL lines, never secret values, exits non-zero on failure. Safe in CI (passes in the test env).
+- Production requirements documented: `APP_ENV=production`, `APP_DEBUG=false`, `FRONTEND_URLS` set to real origins, secrets via env only, `php artisan migrate --force`, `php artisan optimize` (config/route/event/view caches; generated files never committed), a supervised `queue:work` process, scheduler cron (`* * * * *`), shared cache driver for multi-server rate limits, TLS/HSTS at the proxy. Session driver is irrelevant (stateless Sanctum bearer API).
+
+#### Files changed
+- New: `app/Listeners/CheckDatabaseHealth.php`, `app/Http/Middleware/RequestId.php`, `app/Console/Commands/CheckApp.php`, `tests/Feature/Phase9ReliabilityTest.php`.
+- Modified: `bootstrap/app.php` (RequestId middleware + prod error renderer), `routes/console.php` (scheduler), `config/payments.php` (HTTP guardrails), `StripeGateway.php` + `SslCommerzGateway.php` (timeouts + timeout handling), notification controllers + `ReviewService` + 3 admin controllers (pagination clamps), `frontend/src/lib/api.ts` (`requestId`), `CONTEXT.md`.
+
+#### Tests
+- New `backend/tests/Feature/Phase9ReliabilityTest.php` — **23 tests**: healthy `/up` without leaks; unhealthy `/up` on DB loss; request-ID presence/uniqueness/UUID shape and its inability to authorize; prod-shaped 500 with matching header/body IDs and no trace/path/secret leakage; validation shape preserved; failing job persisted to `failed_jobs`; retry-then-fail lifecycle; `queue:failed` listing; scheduler registration; idempotent `audit:prune`; `app:check` pass without leaks + failure on bad config; three pagination clamps; product-listing query-count bound; duplicate cancellation/return-receipt rejection; single refund-completion notification; login-throttle, audit-write, and admin-403 regressions.
+- Full suite: `254 passed (1203 assertions)` — 231 pre-existing + 23 new, zero failures.
+- Frontend: `npm run build` ✅ (vite 7.3.6, `dist/index.html` 1,923.93 kB, gzip 1,050.03 kB, ~14.8s).
+- `vendor/bin/pint --dirty --format agent` ✅ clean.
+
+#### Remaining limitations (deployment-specific, NOT implemented)
+- No WAF/CDN, external APM, SIEM, autoscaling, multi-region, automated backups, managed Redis, managed workers, or proxy TLS/HSTS in the repo.
+- Rate-limit counters are cache-store local; multi-server needs a shared store.
+- No verbose production query logging; no analytics caching.
+- Gateway initiation inside the checkout transaction (see above).
+- This phase does not claim "production ready" — it implements and tests the listed controls and documents the rest.
+
 ## Frontend Architecture
 
 The frontend is a React SPA with route-level lazy loading.
@@ -1537,6 +1591,8 @@ Wait - the table above is stale; it is replaced by the corrected state below.
 | 70 | Phase 7 test coverage | ✅ | `Phase7AnalyticsTest`, 32 feature tests; suite total 198 passed (982 assertions) |
 | 71 | Security hardening & auditability | ✅ | 12 named rate limiters, audit log + admin UI, security headers; see Phase 8 section |
 | 72 | Phase 8 test coverage | ✅ | `Phase8SecurityTest`, 33 tests; suite total 231 passed (1125 assertions) |
+| 73 | Production readiness & reliability | ✅ | health checks, request IDs, safe errors, timeouts, scheduler, app:check, pagination caps; see Phase 9 section |
+| 74 | Phase 9 test coverage | ✅ | `Phase9ReliabilityTest`, 23 tests; suite total 254 passed (1203 assertions) |
 
 Legend:
 

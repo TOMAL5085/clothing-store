@@ -3,11 +3,13 @@ const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1")
 export class ApiError extends Error {
   status: number;
   errors?: Record<string, string[]>;
+  requestId?: string;
 
-  constructor(message: string, status: number, errors?: Record<string, string[]>) {
+  constructor(message: string, status: number, errors?: Record<string, string[]>, requestId?: string) {
     super(message);
     this.status = status;
     this.errors = errors;
+    this.requestId = requestId;
   }
 }
 
@@ -35,7 +37,12 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new ApiError(payload.message ?? "Request failed.", response.status, payload.errors);
+    throw new ApiError(
+      payload.message ?? "Request failed.",
+      response.status,
+      payload.errors,
+      response.headers.get("x-request-id") ?? undefined,
+    );
   }
 
   return payload as T;

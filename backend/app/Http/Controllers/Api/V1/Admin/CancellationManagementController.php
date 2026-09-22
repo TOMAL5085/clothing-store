@@ -23,7 +23,7 @@ class CancellationManagementController extends Controller
             ->with(['order.user', 'refund'])
             ->when(is_string($status) && $status !== 'all', fn ($query) => $query->where('status', $status))
             ->latest()
-            ->paginate((int) $request->query('per_page', 50));
+            ->paginate(min(max((int) $request->query('per_page', 50), 1), 100));
 
         return CancellationRequestResource::collection($requests);
     }

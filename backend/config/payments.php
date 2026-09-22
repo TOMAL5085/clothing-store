@@ -8,6 +8,11 @@ return [
     'store_currency' => env('PAYMENT_STORE_CURRENCY', 'USD'),
     'frontend_url' => env('PAYMENT_FRONTEND_URL', $frontendUrls[0] ?? 'http://localhost:5173'),
 
+    // Outbound HTTP guardrails so a hung provider can never hold a request
+    // (or a checkout transaction) open indefinitely.
+    'http_timeout' => (int) env('PAYMENT_HTTP_TIMEOUT', 15),
+    'http_connect_timeout' => (int) env('PAYMENT_HTTP_CONNECT_TIMEOUT', 5),
+
     'stripe' => [
         'key' => env('STRIPE_KEY') ?: ($testing ? 'pk_test_placeholder' : null),
         'secret' => env('STRIPE_SECRET') ?: ($testing ? 'sk_test_placeholder' : null),
