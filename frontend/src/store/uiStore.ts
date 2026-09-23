@@ -23,11 +23,13 @@ interface UiState {
   toggleMobileNav: () => void;
   // Toasts (ephemeral)
   toasts: Toast[];
-  pushToast: (message: string) => void;
+  pushToast: (message: string, durationMs?: number) => void;
   dismissToast: (id: number) => void;
 }
 
 let toastId = 0;
+export const DEFAULT_TOAST_MS = 3200;
+export const LONG_TOAST_MS = 5 * 60 * 1000;
 const wishlistTokenKey = "jaaj-wishlist-token";
 
 interface WishlistResponse {
@@ -88,10 +90,10 @@ export const useUiStore = create<UiState>()(
         set((state) => ({ mobileNavOpen: !state.mobileNavOpen })),
 
       toasts: [],
-      pushToast: (message) => {
+      pushToast: (message, durationMs = DEFAULT_TOAST_MS) => {
         const id = ++toastId;
         set((state) => ({ toasts: [...state.toasts, { id, message }] }));
-        window.setTimeout(() => get().dismissToast(id), 3200);
+        window.setTimeout(() => get().dismissToast(id), durationMs);
       },
       dismissToast: (id) =>
         set((state) => ({

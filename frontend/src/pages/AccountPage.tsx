@@ -4,7 +4,7 @@ import { BarChart3, Calendar, Heart, Home, KeyRound, LogOut, MailCheck, Megaphon
 import { ApiError, api } from "@/lib/api";
 import { useAuthStore, type Address, type AddressPayload } from "@/store/authStore";
 import { useOrderStore, type Order } from "@/store/orderStore";
-import { useUiStore } from "@/store/uiStore";
+import { LONG_TOAST_MS, useUiStore } from "@/store/uiStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useCurrencyStore } from "@/store/currencyStore";
 import { useCatalogStore } from "@/store/catalogStore";
@@ -152,7 +152,10 @@ export default function AccountPage() {
     setError("");
     try {
       const debugOtp = await requestOtp();
-      pushToast(debugOtp ? `Verification code: ${debugOtp}` : "Verification code sent");
+      pushToast(
+        debugOtp ? `Verification code: ${debugOtp}` : "Verification code sent",
+        debugOtp ? LONG_TOAST_MS : undefined,
+      );
     } catch (requestError) {
       setError(apiMessage(requestError, "Could not send verification code."));
     } finally {

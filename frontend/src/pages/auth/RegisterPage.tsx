@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { UserPlus } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { useUiStore } from "@/store/uiStore";
+import { LONG_TOAST_MS, useUiStore } from "@/store/uiStore";
 import { Button, Field, Input } from "@/components/ui/primitives";
 import { usePageTitle } from "@/utils/usePageTitle";
 import { ApiError } from "@/lib/api";
@@ -30,7 +30,10 @@ export default function RegisterPage() {
     if (Object.keys(next).length) return;
     try {
       const debugOtp = await register(form.name, form.email, form.password, form.phone || undefined);
-      pushToast(debugOtp ? `Verification code: ${debugOtp}` : "Welcome to JAAJ");
+      pushToast(
+        debugOtp ? `Verification code: ${debugOtp}` : "Welcome to JAAJ",
+        debugOtp ? LONG_TOAST_MS : undefined,
+      );
       navigate("/account?tab=security", { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
