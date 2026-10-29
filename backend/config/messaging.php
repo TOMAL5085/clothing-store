@@ -2,6 +2,7 @@
 
 use App\Services\Messaging\MockSmsGateway;
 use App\Services\Messaging\MockWhatsappGateway;
+use App\Services\Messaging\TwilioSmsGateway;
 
 return [
 
@@ -26,6 +27,10 @@ return [
             'driver' => 'mock',
             'sms_class' => MockSmsGateway::class,
             'whatsapp_class' => MockWhatsappGateway::class,
+        ],
+        'twilio' => [
+            'driver' => 'twilio',
+            'sms_class' => TwilioSmsGateway::class,
         ],
     ],
 

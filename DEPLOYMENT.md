@@ -154,3 +154,23 @@ Never commit the generated files under `bootstrap/cache/` or
    `PRODUCTION_CHECKLIST.md`) over blind rollback.
 4. Re-run `php artisan app:check` and the smoke checks in
    `PRODUCTION_CHECKLIST.md`.
+
+## J. Phase C-G production configuration
+
+Run all migrations, including the account/commerce/logistics/marketing/order
+migrations through `database/migrations/000018_*.php`. Do not skip the latest
+migrations for address coordinates and blocked IPs.
+
+Before launch, configure and test:
+
+- payment provider credentials and webhooks (Stripe and/or SSLCOMMERZ);
+- SMTP/mail delivery for invoice email and notifications;
+- a real courier driver and credentials instead of the mock driver;
+- `SMS_DRIVER=twilio` plus `TWILIO_*` values if SMS is required;
+- Meta Pixel and Google Analytics IDs in the admin marketing settings;
+- a supervised `php artisan queue:work` process for invoice email, SMS, and
+  notifications.
+
+The courier bulk endpoint accepts CSV and XLSX uploads. Keep upload limits and
+temporary-file permissions configured at the web server/PHP layer. Marketing
+tracking is consent-aware, and visitor IP values are hashed before storage.

@@ -10,6 +10,15 @@ const content: Record<
     sections: Array<{ heading: string; body: string[] }>;
   }
 > = {
+  "/help-center": {
+    kicker: "Help center",
+    title: "We’re here to help.",
+    intro: "Find quick answers about orders, delivery, returns and account support.",
+    sections: [
+      { heading: "Orders & delivery", body: ["You can follow order status from Account → Orders after signing in.", "For delivery questions, contact care@jaaj.studio with your order number."] },
+      { heading: "Returns", body: ["Returns are accepted within 30 days when items are unworn and in original condition.", "Our support team can help with exchanges, refunds and sizing questions."] },
+    ],
+  },
   "/our-story": {
     kicker: "Our story",
     title: "Quiet luxury, rooted in craft.",

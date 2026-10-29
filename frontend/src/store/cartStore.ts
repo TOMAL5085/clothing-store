@@ -107,6 +107,15 @@ export const useCartStore = create<CartState>()(
       loadCart: async () => {
         set({ loading: true });
         try {
+          const recovery = new URLSearchParams(window.location.search);
+          const recoveryCart = recovery.get("recover");
+          const recoveryToken = recovery.get("token");
+          if (recoveryCart && recoveryToken) {
+            const recovered = await api<CartResponse>(`/cart/recover?cart_id=${encodeURIComponent(recoveryCart)}&token=${encodeURIComponent(recoveryToken)}`);
+            set(normalize(recovered));
+            window.history.replaceState({}, "", "/cart");
+            return;
+          }
           const token = localStorage.getItem(cartTokenKey);
           const response = await api<CartResponse>(`/cart${token ? `?cart_token=${encodeURIComponent(token)}` : ""}`);
           set(normalize(response));

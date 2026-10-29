@@ -86,3 +86,25 @@ workers, scheduler, storage, payments, HTTPS, rollback) and
 [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) for pre-flight, smoke
 checks, backup, and monitoring checklists. Validate any environment with
 `php artisan app:check` from `backend/`.
+
+## Current feature coverage
+
+The application now includes the planned Phase A-G modules: catalog/content
+management, suppliers and purchasing, accounts and expenses, wholesale
+customers and weight-based pricing, courier/invoice operations, marketing and
+analytics, and the order workflow. The admin pages are:
+
+- `/admin/products`, `/admin/categories`, `/admin/brands`, `/admin/content`
+- `/admin/commerce`, `/admin/logistics`, `/admin/marketing`
+- `/admin/order-workflow`, `/admin/reports/staff-orders`, `/admin/settings`
+- `/admin/analytics`, `/admin/orders`, and `/admin/customers`
+
+Before client launch, configure real payment, mail, courier, and optional SMS
+credentials. The default courier and SMS drivers are safe mock drivers for
+development. Courier bulk import accepts CSV and XLSX files, invoice email is
+queued, visitor IPs are stored as one-way hashes, and marketing scripts load
+only after consent.
+
+For the client-facing operating instructions, see
+[CLIENT_HANDOFF.md](CLIENT_HANDOFF.md), [ADMIN_GUIDE.md](ADMIN_GUIDE.md), and
+[FINAL_CLIENT_HANDOFF.md](FINAL_CLIENT_HANDOFF.md).

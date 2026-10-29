@@ -41,6 +41,11 @@ class Order extends Model
         'inventory_decremented_at',
         'coupon_consumed_at',
         'cart_cleared_at',
+        'wholesale_customer_id',
+        'courier_reference',
+        'invoice_emailed_at',
+        'disbursed_at',
+        'internal_note',
     ];
 
     protected function casts(): array
@@ -54,6 +59,8 @@ class Order extends Model
             'inventory_decremented_at' => 'datetime',
             'coupon_consumed_at' => 'datetime',
             'cart_cleared_at' => 'datetime',
+            'invoice_emailed_at' => 'datetime',
+            'disbursed_at' => 'datetime',
         ];
     }
 
@@ -90,6 +97,21 @@ class Order extends Model
     public function shipment(): HasOne
     {
         return $this->hasOne(Shipment::class);
+    }
+
+    public function wholesaleCustomer(): BelongsTo
+    {
+        return $this->belongsTo(WholesaleCustomer::class);
+    }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(OrderAssignment::class);
+    }
+
+    public function fraudCheck(): HasOne
+    {
+        return $this->hasOne(FraudCheck::class);
     }
 
     public function cancellationRequest(): HasOne

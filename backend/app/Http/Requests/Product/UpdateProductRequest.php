@@ -34,6 +34,8 @@ class UpdateProductRequest extends FormRequest
             'price' => ['sometimes', 'numeric', 'min:0'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0'],
             'sku' => ['sometimes', 'string', 'max:255', Rule::unique('products', 'sku')->ignore($this->route('product'))],
+            'weight' => ['nullable', 'numeric', 'min:0'],
+            'weight_unit' => ['nullable', 'in:g,kg,lb,oz'],
             'brand' => ['nullable', 'string', 'max:255'],
             'badge' => ['nullable', 'string', 'max:50'],
             'is_new' => ['nullable', 'boolean'],

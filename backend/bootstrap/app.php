@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\RequestId;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\BlocklistedIp;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(HandleCors::class);
         $middleware->append(SecurityHeaders::class);
+        $middleware->append(BlocklistedIp::class);
         $middleware->append(RequestId::class);
         // Behind HTTPS-terminating proxies, trust only the explicitly
         // configured hops so generated URLs use the correct scheme/host.

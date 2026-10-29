@@ -143,8 +143,9 @@ import { useUiStore } from "@/store/uiStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
-import { trackPageView } from "@/lib/marketing";
+import { recordVisitor, trackPageView } from "@/lib/marketing";
 import { cn } from "@/utils/cn";
+import { MarketingScripts } from "@/components/MarketingScripts";
 
 /* Route-level code splitting with React.lazy + Suspense (Part 4 §93) */
 const HomePage = lazy(() => import("@/pages/HomePage"));
@@ -182,6 +183,14 @@ const AdminCitiesPage = lazy(() => import("@/pages/admin/AdminCitiesPage"));
 const AdminSuppliersPage = lazy(() => import("@/pages/admin/AdminSuppliersPage"));
 const AdminPurchasesPage = lazy(() => import("@/pages/admin/AdminPurchasesPage"));
 const AdminSupplierLedgerPage = lazy(() => import("@/pages/admin/AdminSupplierLedgerPage"));
+const AdminOperationsPage = lazy(() => import("@/pages/admin/AdminOperationsPage"));
+const AdminCommercePage = lazy(() => import("@/pages/admin/AdminCommercePage"));
+const AdminInvoicePage = lazy(() => import("@/pages/admin/AdminInvoicePage"));
+const AdminLogisticsPage = lazy(() => import("@/pages/admin/AdminLogisticsPage"));
+const AdminMarketingPage = lazy(() => import("@/pages/admin/AdminMarketingPage"));
+const AdminOrderWorkflowPage = lazy(() => import("@/pages/admin/AdminOrderWorkflowPage"));
+const AdminSettingsPage = lazy(() => import("@/pages/admin/AdminSettingsPage"));
+const AdminStaffReportPage = lazy(() => import("@/pages/admin/AdminStaffReportPage"));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
 const InfoRoutePage = lazy(() => import("@/pages/InfoRoutePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
@@ -198,6 +207,7 @@ function RouteTracker() {
   const { pathname, search } = useLocation();
   useEffect(() => {
     trackPageView(`${pathname}${search}`);
+    recordVisitor(pathname);
   }, [pathname, search]);
   return null;
 }
@@ -297,6 +307,15 @@ export default function App() {
                 <Route path="/admin/suppliers" element={<AdminSuppliersPage />} />
                 <Route path="/admin/purchases" element={<AdminPurchasesPage />} />
                 <Route path="/admin/supplier-ledger" element={<AdminSupplierLedgerPage />} />
+                <Route path="/admin/operations" element={<AdminOperationsPage />} />
+                <Route path="/admin/commerce" element={<AdminCommercePage />} />
+                <Route path="/admin/invoices/:orderNumber" element={<AdminInvoicePage />} />
+                <Route path="/admin/logistics" element={<AdminLogisticsPage />} />
+                <Route path="/admin/marketing" element={<AdminMarketingPage />} />
+                <Route path="/admin/order-workflow" element={<AdminOrderWorkflowPage />} />
+                <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                <Route path="/admin/reports/staff-orders" element={<AdminStaffReportPage />} />
+                <Route path="/help-center" element={<InfoRoutePage />} />
                 <Route path="/our-story" element={<InfoRoutePage />} />
                 <Route path="/careers" element={<InfoRoutePage />} />
                 <Route path="/stores" element={<InfoRoutePage />} />
@@ -326,6 +345,7 @@ export default function App() {
         <SearchOverlay />
         <Toasts />
         <ConsentBanner />
+        <MarketingScripts />
       </ErrorBoundary>
     </BrowserRouter>
   );

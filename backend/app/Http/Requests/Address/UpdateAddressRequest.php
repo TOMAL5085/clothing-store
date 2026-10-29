@@ -19,6 +19,8 @@ class UpdateAddressRequest extends StoreAddressRequest
             'postalCode' => ['sometimes', 'required', 'string', 'min:3', 'max:50'],
             'country' => ['sometimes', 'required', 'string', 'max:255'],
             'isDefault' => ['sometimes', 'boolean'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 }

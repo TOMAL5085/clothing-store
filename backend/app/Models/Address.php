@@ -19,12 +19,16 @@ class Address extends Model
         'postal_code',
         'country',
         'is_default',
+        'latitude',
+        'longitude',
     ];
 
     protected function casts(): array
     {
         return [
             'is_default' => 'boolean',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
         ];
     }
 

@@ -1,0 +1,70 @@
+import { useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { BookOpen, Plus, ShieldAlert, Trash2, Users, Weight } from "lucide-react";
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import { useUiStore } from "@/store/uiStore";
+import { Button, EmptyState, Field, Input, Select, Spinner } from "@/components/ui/primitives";
+import { usePageTitle } from "@/utils/usePageTitle";
+
+type Customer = { id: number; code: string; name: string; company?: string | null; email?: string | null; phone?: string | null; credit_limit: string; balance?: number; is_active: boolean };
+type Rule = { id: number; product_id?: number | null; min_weight: string; max_weight?: string | null; price: string; unit: string; is_active: boolean; product?: { name: string; sku: string } | null };
+type Ledger = { id: number; reference?: string | null; entry_type: "debit" | "credit"; amount: string; description?: string | null; entry_date: string };
+type Paged<T> = { data: T[]; meta?: { total: number } };
+
+const unwrap = <T,>(payload: any): Paged<T> => payload?.data?.data ? payload.data : { data: payload?.data ?? [] };
+const emptyCustomer = { code: "", name: "", company: "", email: "", phone: "", credit_limit: "" };
+const emptyRule = { product_id: "", min_weight: "", max_weight: "", price: "", unit: "kg" };
+
+export default function AdminCommercePage() {
+  usePageTitle("Commerce");
+  const user = useAuthStore((state) => state.user);
+  const location = useLocation();
+  const pushToast = useUiStore((state) => state.pushToast);
+  const [tab, setTab] = useState<"customers" | "pricing">("customers");
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [selected, setSelected] = useState<Customer | null>(null);
+  const [ledger, setLedger] = useState<Ledger[]>([]);
+  const [customerForm, setCustomerForm] = useState(emptyCustomer);
+  const [ledgerForm, setLedgerForm] = useState({ entry_type: "debit", amount: "", reference: "", description: "", entry_date: new Date().toISOString().slice(0, 10) });
+  const [ruleForm, setRuleForm] = useState(emptyRule);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [customerResponse, ruleResponse] = await Promise.all([api<any>("/admin/wholesale-customers?per_page=100"), api<any>("/admin/weight-price/rules?per_page=100")]);
+      setCustomers(unwrap<Customer>(customerResponse).data);
+      setRules(unwrap<Rule>(ruleResponse).data);
+    } catch (error) { pushToast(error instanceof Error ? error.message : "Commerce data could not be loaded"); } finally { setLoading(false); }
+  };
+  useEffect(() => { if (user?.role === "admin") void load(); }, [user?.role]);
+
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (user.role !== "admin") return <div className="mx-auto max-w-3xl px-4 py-12"><EmptyState icon={ShieldAlert} title="Admin access required" body="Commerce management is only available to store administrators." actionLabel="Back to account" actionTo="/account" /></div>;
+
+  const createCustomer = async () => { try { await api("/admin/wholesale-customers", { method: "POST", body: JSON.stringify({ ...customerForm, credit_limit: Number(customerForm.credit_limit) || 0 }) }); setCustomerForm(emptyCustomer); pushToast("Wholesale customer created"); await load(); } catch (error) { pushToast(error instanceof Error ? error.message : "Could not create customer"); } };
+  const removeCustomer = async (customer: Customer) => { if (!window.confirm(`Delete ${customer.name}?`)) return; try { await api(`/admin/wholesale-customers/${customer.id}`, { method: "DELETE" }); if (selected?.id === customer.id) setSelected(null); pushToast("Customer deleted"); await load(); } catch (error) { pushToast(error instanceof Error ? error.message : "Could not delete customer"); } };
+  const showLedger = async (customer: Customer) => { setSelected(customer); try { const response = await api<any>(`/admin/wholesale-customers/${customer.id}/ledger?per_page=100`); setLedger(unwrap<Ledger>(response).data); } catch { setLedger([]); } };
+  const addLedger = async () => { if (!selected) return; try { await api(`/admin/wholesale-customers/${selected.id}/ledger`, { method: "POST", body: JSON.stringify({ ...ledgerForm, amount: Number(ledgerForm.amount) }) }); setLedgerForm({ ...ledgerForm, amount: "", reference: "", description: "" }); pushToast("Ledger entry added"); await showLedger(selected); await load(); } catch (error) { pushToast(error instanceof Error ? error.message : "Could not add ledger entry"); } };
+  const createRule = async () => { try { await api("/admin/weight-price/rules", { method: "POST", body: JSON.stringify({ product_id: ruleForm.product_id ? Number(ruleForm.product_id) : null, min_weight: Number(ruleForm.min_weight), max_weight: ruleForm.max_weight ? Number(ruleForm.max_weight) : null, price: Number(ruleForm.price), unit: ruleForm.unit }) }); setRuleForm(emptyRule); pushToast("Weight price rule created"); await load(); } catch (error) { pushToast(error instanceof Error ? error.message : "Could not create rule"); } };
+  const removeRule = async (rule: Rule) => { if (!window.confirm("Delete this pricing rule?")) return; try { await api(`/admin/weight-price/rules/${rule.id}`, { method: "DELETE" }); pushToast("Pricing rule deleted"); await load(); } catch (error) { pushToast(error instanceof Error ? error.message : "Could not delete rule"); } };
+
+  return <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6 lg:py-16">
+    <div><p className="text-[11px] font-bold tracking-[0.24em] uppercase text-bronze">Admin · Phase D</p><h1 className="mt-2 font-display text-4xl text-ink sm:text-5xl dark:text-linen">Commerce</h1><p className="mt-3 max-w-2xl text-sm text-smoke dark:text-linen-dim">Manage wholesale accounts, customer balances and weight-wise pricing rules.</p></div>
+    <div className="mt-8 flex gap-2 border-b border-line dark:border-line-dark"><Tab active={tab === "customers"} onClick={() => setTab("customers")} icon={Users}>Wholesale customers</Tab><Tab active={tab === "pricing"} onClick={() => setTab("pricing")} icon={Weight}>Weight-wise pricing</Tab></div>
+    {loading ? <div className="flex justify-center p-16"><Spinner /></div> : tab === "customers" ? <Customers customers={customers} form={customerForm} setForm={setCustomerForm} create={createCustomer} remove={removeCustomer} selected={selected} showLedger={showLedger} ledger={ledger} ledgerForm={ledgerForm} setLedgerForm={setLedgerForm} addLedger={addLedger} /> : <Pricing rules={rules} form={ruleForm} setForm={setRuleForm} create={createRule} remove={removeRule} />}
+  </div>;
+}
+
+function Tab({ active, onClick, icon: Icon, children }: { active: boolean; onClick: () => void; icon: typeof Users; children: string }) { return <button type="button" onClick={onClick} className={`flex items-center gap-2 border-b-2 px-3 py-3 text-xs font-bold tracking-[0.12em] uppercase ${active ? "border-bronze text-bronze" : "border-transparent text-smoke"}`}><Icon className="h-4 w-4" />{children}</button>; }
+
+function Customers({ customers, form, setForm, create, remove, selected, showLedger, ledger, ledgerForm, setLedgerForm, addLedger }: any) { return <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_1.2fr]">
+  <section><h2 className="font-display text-2xl">Add customer</h2><div className="mt-4 grid gap-3 border border-line bg-cream p-5 dark:border-line-dark dark:bg-nox2"><Field label="Code" htmlFor="customer-code"><Input id="customer-code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="WHOLESALE-001" /></Field><Field label="Name" htmlFor="customer-name"><Input id="customer-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field><Field label="Company" htmlFor="customer-company"><Input id="customer-company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} /></Field><div className="grid gap-3 sm:grid-cols-2"><Field label="Email" htmlFor="customer-email"><Input id="customer-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field><Field label="Phone" htmlFor="customer-phone"><Input id="customer-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field></div><Field label="Credit limit" htmlFor="customer-limit"><Input id="customer-limit" type="number" min="0" step="0.01" value={form.credit_limit} onChange={(e) => setForm({ ...form, credit_limit: e.target.value })} /></Field><Button onClick={() => void create()} icon={Plus}>Create customer</Button></div></section>
+  <section><h2 className="font-display text-2xl">Customer accounts</h2><div className="mt-4 overflow-x-auto border border-line dark:border-line-dark"><table className="w-full min-w-[650px] text-left text-sm"><thead className="bg-cream text-[11px] font-bold tracking-[0.14em] uppercase dark:bg-nox2"><tr><th className="p-4">Customer</th><th className="p-4">Balance</th><th className="p-4">Credit limit</th><th className="p-4">Actions</th></tr></thead><tbody>{customers.map((customer: Customer) => <tr key={customer.id} className="border-t border-line dark:border-line-dark"><td className="p-4"><b>{customer.name}</b><span className="block text-xs text-smoke">{customer.code}{customer.company ? ` · ${customer.company}` : ""}</span></td><td className="p-4">{Number(customer.balance ?? 0).toFixed(2)}</td><td className="p-4">{Number(customer.credit_limit).toFixed(2)}</td><td className="p-4"><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => void showLedger(customer)}><BookOpen className="h-3.5 w-3.5" /> Ledger</Button><Button size="sm" variant="ghost" onClick={() => void remove(customer)}><Trash2 className="h-3.5 w-3.5" /></Button></div></td></tr>)}</tbody></table></div>{selected && <LedgerPanel selected={selected} ledger={ledger} form={ledgerForm} setForm={setLedgerForm} add={addLedger} />}</section>
+  </div>; }
+
+function LedgerPanel({ selected, ledger, form, setForm, add }: any) { return <div className="mt-6 border border-line p-5 dark:border-line-dark"><h3 className="font-display text-xl">Ledger · {selected.name}</h3><div className="mt-4 grid gap-3 sm:grid-cols-2"><Select aria-label="Entry type" value={form.entry_type} onChange={(e) => setForm({ ...form, entry_type: e.target.value })}><option value="debit">Debit</option><option value="credit">Credit</option></Select><Input type="number" min="0.01" step="0.01" placeholder="Amount" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /><Input placeholder="Reference" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /><Input type="date" value={form.entry_date} onChange={(e) => setForm({ ...form, entry_date: e.target.value })} /></div><Button className="mt-3" size="sm" onClick={() => void add()}>Add ledger entry</Button><div className="mt-5 space-y-2">{ledger.map((entry: Ledger) => <div key={entry.id} className="flex justify-between border-t border-line py-2 text-sm dark:border-line-dark"><span>{entry.entry_date} · {entry.description || entry.reference || "Entry"}</span><b className={entry.entry_type === "credit" ? "text-green-700" : "text-red-700"}>{entry.entry_type === "credit" ? "+" : "-"}{Number(entry.amount).toFixed(2)}</b></div>)}</div></div>; }
+
+function Pricing({ rules, form, setForm, create, remove }: any) { return <div className="mt-8 grid gap-8 lg:grid-cols-[360px_1fr]"><section><h2 className="font-display text-2xl">Add pricing rule</h2><div className="mt-4 grid gap-3 border border-line bg-cream p-5 dark:border-line-dark dark:bg-nox2"><Field label="Product ID (optional)" htmlFor="rule-product"><Input id="rule-product" type="number" min="1" value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} placeholder="Applies to all if blank" /></Field><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1"><Field label="Minimum weight" htmlFor="rule-min"><Input id="rule-min" type="number" min="0" step="0.001" value={form.min_weight} onChange={(e) => setForm({ ...form, min_weight: e.target.value })} /></Field><Field label="Maximum weight" htmlFor="rule-max"><Input id="rule-max" type="number" min="0" step="0.001" value={form.max_weight} onChange={(e) => setForm({ ...form, max_weight: e.target.value })} placeholder="No maximum" /></Field></div><Field label="Price" htmlFor="rule-price"><Input id="rule-price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></Field><Field label="Unit" htmlFor="rule-unit"><Select id="rule-unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}><option value="g">Gram</option><option value="kg">Kilogram</option><option value="lb">Pound</option><option value="oz">Ounce</option></Select></Field><Button onClick={() => void create()} icon={Plus}>Create rule</Button></div></section><section><h2 className="font-display text-2xl">Active rules</h2><div className="mt-4 overflow-x-auto border border-line dark:border-line-dark"><table className="w-full min-w-[650px] text-left text-sm"><thead className="bg-cream text-[11px] font-bold tracking-[0.14em] uppercase dark:bg-nox2"><tr><th className="p-4">Product</th><th className="p-4">Weight range</th><th className="p-4">Price</th><th className="p-4">Actions</th></tr></thead><tbody>{rules.map((rule: Rule) => <tr key={rule.id} className="border-t border-line dark:border-line-dark"><td className="p-4">{rule.product?.name ?? "Global rule"}</td><td className="p-4">{rule.min_weight}–{rule.max_weight ?? "∞"} {rule.unit}</td><td className="p-4">{Number(rule.price).toFixed(2)}</td><td className="p-4"><Button size="sm" variant="ghost" onClick={() => void remove(rule)}><Trash2 className="h-3.5 w-3.5" /></Button></td></tr>)}</tbody></table></div></section></div>; }

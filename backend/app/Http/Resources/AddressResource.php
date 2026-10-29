@@ -21,6 +21,8 @@ class AddressResource extends JsonResource
             'postalCode' => $this->postal_code,
             'country' => $this->country,
             'isDefault' => $this->is_default,
+            'latitude' => $this->latitude !== null ? (float) $this->latitude : null,
+            'longitude' => $this->longitude !== null ? (float) $this->longitude : null,
             'createdAt' => $this->created_at?->toISOString(),
             'updatedAt' => $this->updated_at?->toISOString(),
         ];

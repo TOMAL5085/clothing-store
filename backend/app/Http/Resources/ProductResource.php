@@ -42,6 +42,8 @@ class ProductResource extends JsonResource
             'lowStockThreshold' => $this->low_stock_threshold,
             'inventoryStatus' => $this->inventory_status,
             'sku' => $this->sku,
+            'weight' => $this->weight !== null ? (float) $this->weight : null,
+            'weightUnit' => $this->weight_unit,
             'brand' => $this->brand,
             'variants' => collect($variants)->map(fn ($variant) => [
                 'id' => $variant->id,

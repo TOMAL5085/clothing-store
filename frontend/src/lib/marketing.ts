@@ -87,6 +87,18 @@ export function hasConsentRecord(): boolean {
 
 export function setConsent(consent: ConsentState): void {
   writeStorage(CONSENT_KEY, JSON.stringify({ ...consent, decided_at: new Date().toISOString() }));
+  window.dispatchEvent(new CustomEvent("jaaj:consent-change", { detail: consent }));
+}
+
+export function trackVendorEvent(eventName: string, fields: { value?: number; currency?: string; metadata?: Record<string, string | number> } = {}): void {
+  const consent = getConsent();
+  if (consent.analytics && typeof window !== "undefined" && typeof window.gtag === "function") {
+    window.gtag("event", eventName, { value: fields.value, currency: fields.currency, ...fields.metadata });
+  }
+  if (consent.marketing && typeof window !== "undefined" && typeof window.fbq === "function") {
+    const event = eventName === "page_view" ? "PageView" : eventName === "purchase" ? "Purchase" : eventName === "add_to_cart" ? "AddToCart" : eventName;
+    window.fbq("track", event, fields.value === undefined ? undefined : { value: fields.value, currency: fields.currency });
+  }
 }
 
 /**
@@ -154,6 +166,7 @@ function postEvent(eventName: string, fields: TrackFields = {}): void {
   }
   if (fields.value !== undefined) payload.value = fields.value;
   if (fields.currency !== undefined) payload.currency = fields.currency;
+  trackVendorEvent(eventName, fields);
 
   // Fire-and-forget: tracking must never block UI or break shopping.
   void api("/marketing/events", {
@@ -166,6 +179,10 @@ export function trackPageView(path: string): void {
   if (path === lastPageView) return;
   lastPageView = path;
   postEvent("page_view", { metadata: { path: path.slice(0, 500) } });
+}
+
+export function recordVisitor(path: string): void {
+  void api("/visitors", { method: "POST", body: JSON.stringify({ path: path.slice(0, 500) }) }).catch(() => undefined);
 }
 
 export function trackProductView(input: { productId: string; slug?: string; category?: string; currency?: string }): void {

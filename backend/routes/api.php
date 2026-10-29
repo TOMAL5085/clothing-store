@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AddressController;
+use App\Http\Controllers\Api\V1\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AuditLogController;
 use App\Http\Controllers\Api\V1\Admin\BannerController as AdminBannerController;
@@ -10,6 +12,9 @@ use App\Http\Controllers\Api\V1\Admin\CategoryController as AdminCategoryControl
 use App\Http\Controllers\Api\V1\Admin\CityController as AdminCityController;
 use App\Http\Controllers\Api\V1\Admin\CmsContentController as AdminCmsContentController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
+use App\Http\Controllers\Api\V1\Admin\EmployeeSalaryController as AdminEmployeeSalaryController;
+use App\Http\Controllers\Api\V1\Admin\ExpenseController as AdminExpenseController;
+use App\Http\Controllers\Api\V1\Admin\ManualPaymentController as AdminManualPaymentController;
 use App\Http\Controllers\Api\V1\Admin\OrderManagementController;
 use App\Http\Controllers\Api\V1\Admin\ProductManagementController;
 use App\Http\Controllers\Api\V1\Admin\PurchaseController as AdminPurchaseController;
@@ -28,6 +33,11 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\CityController;
 use App\Http\Controllers\Api\V1\CmsContentController;
+use App\Http\Controllers\Api\V1\EmployeeSalaryController;
+use App\Http\Controllers\Api\V1\ExpenseController;
+use App\Http\Controllers\Api\V1\ManualPaymentController;
+use App\Http\Controllers\Api\V1\PhaseOperationsController;
+use App\Http\Controllers\Api\V1\Admin\PhaseOperationsController as AdminPhaseOperationsController;
 use App\Http\Controllers\Api\V1\MarketingConsentController;
 use App\Http\Controllers\Api\V1\MarketingEventController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -64,6 +74,18 @@ Route::prefix('v1')->group(function () {
     Route::get('cities/{city}', [CityController::class, 'show']);
     Route::get('suppliers', [SupplierController::class, 'index']);
     Route::get('suppliers/{supplier}', [SupplierController::class, 'show']);
+    Route::get('accounts', [AccountController::class, 'index']);
+    Route::get('accounts/{account}', [AccountController::class, 'show']);
+    Route::get('expenses', [ExpenseController::class, 'index']);
+    Route::get('expenses/{expense}', [ExpenseController::class, 'show']);
+    Route::get('salaries', [EmployeeSalaryController::class, 'index']);
+    Route::get('salaries/{salary}', [EmployeeSalaryController::class, 'show']);
+    Route::get('manual-payments', [ManualPaymentController::class, 'index']);
+    Route::get('manual-payments/{payment}', [ManualPaymentController::class, 'show']);
+    Route::post('visitors', [PhaseOperationsController::class, 'visitor'])->middleware('throttle:marketing-events');
+    Route::get('visitor-summary', [PhaseOperationsController::class, 'visitorSummary']);
+    Route::get('store-settings', [PhaseOperationsController::class, 'settings']);
+    Route::post('weight-price/quote', [PhaseOperationsController::class, 'weightQuote']);
     Route::get('cms/content', [CmsContentController::class, 'index']);
     Route::get('banners', [BannerController::class, 'index']);
     Route::get('products', [ProductController::class, 'index']);
@@ -74,6 +96,7 @@ Route::prefix('v1')->group(function () {
     Route::get('products/{product}/related', [ProductController::class, 'related']);
 
     Route::get('cart', [CartController::class, 'show']);
+    Route::get('cart/recover', [CartController::class, 'recover']);
     Route::post('cart/items', [CartController::class, 'store'])->middleware('throttle:storefront-mutations');
     Route::patch('cart/items/{item}', [CartController::class, 'update'])->middleware('throttle:storefront-mutations');
     Route::delete('cart/items/{item}', [CartController::class, 'destroy'])->middleware('throttle:storefront-mutations');
@@ -212,6 +235,70 @@ Route::prefix('v1')->group(function () {
             Route::get('suppliers/{supplier}', [AdminSupplierController::class, 'show']);
             Route::match(['put', 'patch'], 'suppliers/{supplier}', [AdminSupplierController::class, 'update'])->middleware('throttle:admin-mutations');
             Route::delete('suppliers/{supplier}', [AdminSupplierController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Accounts
+            Route::get('accounts', [AdminAccountController::class, 'index']);
+            Route::post('accounts', [AdminAccountController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('accounts/{account}', [AdminAccountController::class, 'show']);
+            Route::match(['put', 'patch'], 'accounts/{account}', [AdminAccountController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('accounts/{account}', [AdminAccountController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Expenses
+            Route::get('expenses', [AdminExpenseController::class, 'index']);
+            Route::post('expenses', [AdminExpenseController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('expenses/{expense}', [AdminExpenseController::class, 'show']);
+            Route::match(['put', 'patch'], 'expenses/{expense}', [AdminExpenseController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('expenses/{expense}', [AdminExpenseController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Salaries
+            Route::get('salaries', [AdminEmployeeSalaryController::class, 'index']);
+            Route::post('salaries', [AdminEmployeeSalaryController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('salaries/{salary}', [AdminEmployeeSalaryController::class, 'show']);
+            Route::match(['put', 'patch'], 'salaries/{salary}', [AdminEmployeeSalaryController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('salaries/{salary}', [AdminEmployeeSalaryController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Manual Payments
+            Route::get('manual-payments', [AdminManualPaymentController::class, 'index']);
+            Route::post('manual-payments', [AdminManualPaymentController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('manual-payments/{payment}', [AdminManualPaymentController::class, 'show']);
+            Route::match(['put', 'patch'], 'manual-payments/{payment}', [AdminManualPaymentController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('manual-payments/{payment}', [AdminManualPaymentController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Phases C-G: wholesale, weight pricing, order workflow, reports, courier, fraud, settings
+            Route::get('wholesale-customers', [AdminPhaseOperationsController::class, 'wholesaleCustomers']);
+            Route::post('wholesale-customers', [AdminPhaseOperationsController::class, 'storeWholesaleCustomer'])->middleware('throttle:admin-mutations');
+            Route::patch('wholesale-customers/{customer}', [AdminPhaseOperationsController::class, 'updateWholesaleCustomer'])->middleware('throttle:admin-mutations');
+            Route::delete('wholesale-customers/{customer}', [AdminPhaseOperationsController::class, 'deleteWholesaleCustomer'])->middleware('throttle:admin-mutations');
+            Route::post('orders/{order}/wholesale', [AdminPhaseOperationsController::class, 'markWholesaleOrder'])->middleware('throttle:admin-mutations');
+            Route::get('wholesale-customers/{customer}/ledger', [AdminPhaseOperationsController::class, 'wholesaleLedger']);
+            Route::post('wholesale-customers/{customer}/ledger', [AdminPhaseOperationsController::class, 'addWholesaleLedger'])->middleware('throttle:admin-mutations');
+            Route::get('weight-price/rules', [AdminPhaseOperationsController::class, 'weightRules']);
+            Route::post('weight-price/rules', [AdminPhaseOperationsController::class, 'storeWeightRule'])->middleware('throttle:admin-mutations');
+            Route::delete('weight-price/rules/{rule}', [AdminPhaseOperationsController::class, 'deleteWeightRule'])->middleware('throttle:admin-mutations');
+            Route::get('order-assignments', [AdminPhaseOperationsController::class, 'assignments']);
+            Route::get('reports/staff-orders', [AdminPhaseOperationsController::class, 'staffOrderReport']);
+            Route::post('orders/{order}/assign', [AdminPhaseOperationsController::class, 'assignOrder'])->middleware('throttle:admin-mutations');
+            Route::post('orders/{order}/disburse', [AdminPhaseOperationsController::class, 'disburseOrder'])->middleware('throttle:admin-mutations');
+            Route::post('orders/auto-disburse', [AdminPhaseOperationsController::class, 'autoDisburse'])->middleware('throttle:admin-mutations');
+            Route::get('reports/orders', [AdminPhaseOperationsController::class, 'orderReport']);
+            Route::get('reports/orders/download', [AdminPhaseOperationsController::class, 'downloadOrders']);
+            Route::post('courier/bulk', [AdminPhaseOperationsController::class, 'courierBulk'])->middleware('throttle:admin-mutations');
+            Route::post('courier/bulk-import', [AdminPhaseOperationsController::class, 'courierBulkImport'])->middleware('throttle:admin-mutations');
+            Route::post('courier/auto-entry', [AdminPhaseOperationsController::class, 'courierAutoEntry'])->middleware('throttle:admin-mutations');
+            Route::get('courier/reports', [AdminPhaseOperationsController::class, 'courierReport']);
+            Route::get('orders/{order}/invoice', [AdminPhaseOperationsController::class, 'invoice']);
+            Route::post('orders/{order}/invoice/email', [AdminPhaseOperationsController::class, 'emailInvoice'])->middleware('throttle:admin-mutations');
+            Route::post('orders/{order}/fraud-check', [AdminPhaseOperationsController::class, 'fraudCheck'])->middleware('throttle:admin-mutations');
+            Route::get('abandoned-carts', [AdminPhaseOperationsController::class, 'abandonedCarts']);
+            Route::post('abandoned-carts/{cart}/recover', [AdminPhaseOperationsController::class, 'recoverCart'])->middleware('throttle:admin-mutations');
+            Route::get('visitor-summary', [PhaseOperationsController::class, 'visitorSummary']);
+            Route::get('store-settings', [AdminPhaseOperationsController::class, 'settings']);
+            Route::put('store-settings', [AdminPhaseOperationsController::class, 'saveSetting'])->middleware('throttle:admin-mutations');
+            Route::get('marketing/config', [AdminPhaseOperationsController::class, 'marketingConfig']);
+            Route::get('marketing/fraud-report', [AdminPhaseOperationsController::class, 'fraudReport']);
+            Route::get('security/blocked-ips', [AdminPhaseOperationsController::class, 'blockedIps']);
+            Route::post('security/blocked-ips', [AdminPhaseOperationsController::class, 'blockIp'])->middleware('throttle:admin-mutations');
+            Route::delete('security/blocked-ips/{blockedIp}', [AdminPhaseOperationsController::class, 'unblockIp'])->middleware('throttle:admin-mutations');
 
             // Purchases
             Route::get('purchases', [AdminPurchaseController::class, 'index']);

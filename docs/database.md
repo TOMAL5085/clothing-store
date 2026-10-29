@@ -41,3 +41,17 @@ Inventory status is derived server-side:
 - `in_stock`: stock is above the low-stock threshold.
 
 Admin inventory adjustments update variant stock and then synchronize aggregate product stock.
+
+## Phase C-G tables and fields
+
+The later migrations add `accounts`, `account_transactions`, `expenses`,
+`employee_salaries`, `manual_payments`, `wholesale_customers`,
+`wholesale_customer_ledger`, `weight_price_rules`, `courier_entries`,
+`order_assignments`, `visitor_counts`, `fraud_checks`, `store_settings`, and
+`blocked_ips`. Products may store `weight` and `weight_unit`; orders may
+reference a wholesale customer and store courier, invoice, and disbursement
+metadata; addresses may store `latitude` and `longitude` for map links.
+
+Visitor IPs are stored as one-way hashes with daily/monthly aggregation. Raw
+IP addresses are not persisted by the visitor counter. The complete schema is
+applied by the migrations through `000018_*.php`.

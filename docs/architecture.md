@@ -41,3 +41,17 @@
 - Database: PostgreSQL database named `clothing_store`
 
 Enable PHP's `pdo_pgsql` extension before running migrations/tests.
+
+## Phase C-G services
+
+- Admin operations are grouped in finance, commerce, logistics, marketing,
+  and order workflow pages while remaining API-backed.
+- Courier integration uses a gateway abstraction with mock development
+  behavior and a production provider configured through environment values.
+- Invoice email and other outbound work use Laravel's database queue; a
+  supervised `php artisan queue:work` process is required in production.
+- Visitor tracking hashes IPs and aggregates by day/month. Pixel and
+  Analytics scripts load only after frontend consent.
+- `BlocklistedIp` protects the public API from blocked customer IPs.
+- Assignment, auto-disbursement, reports, CSV download, cart recovery, and
+  map coordinates are implemented in the admin/order APIs.

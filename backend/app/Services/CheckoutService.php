@@ -244,6 +244,8 @@ class CheckoutService
                 'city' => $address->city,
                 'postal_code' => $address->postal_code,
                 'country' => $address->country,
+                'latitude' => $address->latitude,
+                'longitude' => $address->longitude,
             ];
         }
 
@@ -261,6 +263,8 @@ class CheckoutService
             'city' => $input['city'] ?? '',
             'postal_code' => $input['postalCode'] ?? $input['postal_code'] ?? '',
             'country' => $input['country'] ?? '',
+            'latitude' => $input['latitude'] ?? null,
+            'longitude' => $input['longitude'] ?? null,
         ];
     }
 
@@ -293,6 +297,8 @@ class CheckoutService
             'city' => $address['city'],
             'postal_code' => $address['postal_code'],
             'country' => $address['country'],
+            'latitude' => $address['latitude'] ?? null,
+            'longitude' => $address['longitude'] ?? null,
         ];
     }
 

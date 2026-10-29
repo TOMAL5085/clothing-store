@@ -33,6 +33,8 @@ class StoreProductRequest extends FormRequest
             'price' => ['required', 'numeric', 'min:0'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0'],
             'sku' => ['required', 'string', 'max:255', 'unique:products,sku'],
+            'weight' => ['nullable', 'numeric', 'min:0'],
+            'weight_unit' => ['nullable', 'in:g,kg,lb,oz'],
             'brand' => ['nullable', 'string', 'max:255'],
             'badge' => ['nullable', 'string', 'max:50'],
             'is_new' => ['nullable', 'boolean'],

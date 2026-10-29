@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { CheckCircle, Package, RefreshCcw, Search, ShieldAlert, Truck, XCircle, RotateCcw } from "lucide-react";
+import { CheckCircle, Package, RefreshCcw, Search, ShieldAlert, Truck, XCircle, RotateCcw, Printer } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PaginationMeta } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
@@ -714,6 +714,7 @@ export default function AdminOrdersPage() {
                         </div>
                       )}
                       <div className="flex flex-wrap items-end gap-2">
+                        <Link to={`/admin/invoices/${encodeURIComponent(order.id)}`} className="inline-flex h-9 items-center gap-2 border border-ink/25 px-4 text-[11px] font-semibold tracking-[0.08em] uppercase transition-colors hover:border-ink hover:bg-ink hover:text-paper dark:border-linen/30 dark:hover:border-linen dark:hover:bg-linen dark:hover:text-nox"><Printer className="h-3.5 w-3.5" /> Print invoice</Link>
                         <Field label="Update status" htmlFor={`order-status-${order.id}`}>
                           <Select id={`order-status-${order.id}`} value={nextStatus[order.id] ?? order.statusCode} onChange={(event) => setNextStatus((current) => ({ ...current, [order.id]: event.target.value }))}>
                             {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}

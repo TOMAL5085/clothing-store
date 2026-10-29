@@ -80,3 +80,40 @@ the `/admin/...` URLs. Every mutation is recorded in the audit log.
 2. Filter by action (e.g. `order.status_updated`, `refund.updated`,
    `cms.created`), actor, or date range.
 3. Each row shows who did what, to which record, and when.
+
+## Commerce operations
+
+- Open `/admin/commerce` to manage wholesale customers, wholesale ledgers,
+  and weight-based price rules.
+- Weight rules are evaluated by product and weight unit. Keep the product's
+  stored weight and the rule's unit consistent.
+- Use the wholesale order action from the order workflow to associate an
+  order with a wholesale customer and record the ledger entry.
+
+## Logistics operations
+
+- Open `/admin/logistics` for courier auto-entry, bulk import, and courier
+  reports. CSV and XLSX imports should contain the order number plus courier,
+  tracking/reference, status, and optional delivery fields.
+- Open `/admin/invoices/:orderNumber` to print an invoice. The order action
+  can also queue an invoice email; a queue worker must be running.
+- Use date filters on courier and staff/order reports before exporting or
+  reviewing a period.
+
+## Marketing and visitor tracking
+
+- Open `/admin/marketing` to review visitor counts, fraud signals, and SMS
+  gateway status. Visitor IPs are stored as hashes rather than raw IPs.
+- Configure Pixel and Google Analytics IDs in the marketing settings. The
+  storefront loads those scripts only after the visitor gives analytics
+  consent.
+- The default SMS driver is mock. Set `SMS_DRIVER=twilio` and configure the
+  Twilio variables on the server before sending real SMS messages.
+
+## Order workflow
+
+- Open `/admin/order-workflow` to search and sort orders, assign staff, run
+  auto-disbursement, download order data, recover incomplete orders, and
+  open map directions from saved coordinates.
+- Block abusive customer IPs from `/admin/settings`. Review carefully because
+  a blocked address cannot create new public requests until it is removed.

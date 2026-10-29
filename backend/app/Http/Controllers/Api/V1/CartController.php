@@ -7,6 +7,7 @@ use App\Http\Requests\Cart\AddCartItemRequest;
 use App\Http\Requests\Cart\UpdateCartItemRequest;
 use App\Http\Resources\CartResource;
 use App\Services\CartService;
+use App\Models\Cart;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,6 +18,16 @@ class CartController extends Controller
     public function show(Request $request): CartResource
     {
         return CartResource::make($this->cartService->load($this->cartService->resolve($request->user('sanctum'), $request->input('cart_token'))));
+    }
+
+    public function recover(Request $request): CartResource
+    {
+        $data=$request->validate(['cart_id'=>'required|integer','token'=>'required|string|max:128']);
+        $cart=Cart::with('items')->findOrFail($data['cart_id']);
+        $valid=$cart->guest_token && hash_equals((string)$cart->guest_token,(string)$data['token']);
+        if(!$valid) $valid=hash_equals(hash('sha256','cart:'.$cart->id.'|'.config('app.key')),(string)$data['token']);
+        abort_unless($valid, 403, 'This recovery link is invalid or expired.');
+        return CartResource::make($this->cartService->load($cart));
     }
 
     public function store(AddCartItemRequest $request): CartResource

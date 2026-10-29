@@ -56,3 +56,13 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Clothing Store API
+
+This Laravel application is the backend for the JAAJ clothing store. It
+provides the versioned `/api/v1` REST API for catalog, checkout, customers,
+payments, suppliers, finance, wholesale, courier, marketing, and order
+operations. Use the repository [README](../README.md), [API reference](../docs/api.md),
+and [deployment guide](../DEPLOYMENT.md) for application-specific setup.
+Production requires PostgreSQL, storage linking, mail configuration, a queue
+worker, and real provider credentials where enabled.

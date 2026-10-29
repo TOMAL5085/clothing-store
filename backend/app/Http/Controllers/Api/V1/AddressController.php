@@ -96,6 +96,8 @@ class AddressController extends Controller
             'postalCode' => 'postal_code',
             'country' => 'country',
             'isDefault' => 'is_default',
+            'latitude' => 'latitude',
+            'longitude' => 'longitude',
         ];
 
         $payload = [];

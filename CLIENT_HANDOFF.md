@@ -160,3 +160,24 @@ or go directly to any `/admin/...` page.
   or confirm the record is published and within schedule.
 - **Realtime not connecting:** the app keeps working over HTTP; check the
   socket server process and `VITE_REVERB_*` values.
+
+## J. Final module coverage
+
+The current build includes the following additional operations beyond the
+core catalog and checkout flow:
+
+- Commerce: wholesale customers, wholesale customer ledger, wholesale orders,
+  and size/weight-based price rules.
+- Logistics: invoice print, invoice email, courier auto-entry, CSV/XLSX bulk
+  courier entry, courier reports, and date-filtered staff/order reports.
+- Marketing and analytics: daily/monthly visitor counts, hashed visitor IP
+  tracking, fraud review data, consent-aware Meta Pixel and Google Analytics,
+  and optional Twilio SMS.
+- Orders: staff assignment and auto-disbursement, search/sort, CSV download,
+  incomplete-order recovery, map links/coordinates, and customer IP blocking.
+- Store administration: city, zone, settings, Help Center, FAQs, About Us,
+  Contact Us, and Terms & Conditions pages.
+
+The code is ready for client deployment after the production checklist is
+completed. Demo/mock providers must be replaced with the client's real
+credentials before accepting live orders.

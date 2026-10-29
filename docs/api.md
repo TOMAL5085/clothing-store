@@ -72,3 +72,24 @@ Payment logic is isolated in `App\Services\PaymentService`.
 Cart totals are authoritative from Laravel. The cart response includes line unit prices, line totals, available stock, product/variant metadata, applied coupon data, and `summary` totals. Frontend totals should display this response instead of recalculating prices.
 
 `JAAJ10` is seeded as an active percent coupon worth 10%. Coupon validation supports active/inactive state, start date, expiration date, minimum order amount, maximum discount amount, global usage limit, and per-customer usage limit. Successful paid checkout increments coupon usage; declined payments do not.
+
+## Phase C-G endpoints
+
+All endpoints below are under `/api/v1`; admin endpoints require the admin
+Sanctum token.
+
+| Area | Endpoints | Purpose |
+|---|---|---|
+| Visitors | `POST /visitors`, `GET /visitor-summary` | Record visits and read daily/monthly counts. |
+| Settings | `GET /store-settings`, `PUT /admin/store-settings` | Read public settings and update admin settings. |
+| Finance | `/admin/accounts`, `/admin/account-transactions`, `/admin/expenses`, `/admin/salaries`, `/admin/manual-payments` | Account and ledger operations. |
+| Commerce | `/admin/wholesale-customers`, `/admin/wholesale-customers/{id}/ledger`, `/admin/weight-price/rules`, `POST /admin/orders/{order}/wholesale` | Wholesale, ledger, weight pricing, and order association. |
+| Courier | `POST /admin/courier/auto-entry`, `POST /admin/courier/bulk-import`, `GET /admin/courier/reports` | Create courier entries, import CSV/XLSX files, and filter reports. |
+| Invoices | `GET /admin/orders/{order}/invoice`, `POST /admin/orders/{order}/invoice/email` | Print an invoice and queue invoice email. |
+| Order workflow | `POST /admin/orders/{order}/assign`, `POST /admin/orders/{order}/disburse`, `POST /admin/orders/auto-disburse`, `GET /admin/reports/orders`, `GET /admin/reports/orders/download`, `GET /admin/reports/staff-orders` | Assign, disburse, filter, and export order data. |
+| Recovery | `GET /admin/abandoned-carts`, `POST /cart/recover` | Review and recover incomplete orders/carts. |
+| Marketing | `GET /admin/marketing/config`, `GET /admin/marketing/fraud-report` | Marketing configuration and fraud review data. |
+| Security | `GET/POST/DELETE /admin/security/blocked-ips` | Review, add, and remove blocked IPs. |
+
+Courier bulk imports use the order number as the matching key. Validate a
+sample spreadsheet in staging before importing production data.

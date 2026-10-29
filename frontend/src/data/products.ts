@@ -23,6 +23,8 @@ export interface Product {
   name: string;
   category: Category;
   price: number; // base USD
+  weight?: number;
+  weightUnit?: string;
   compareAt?: number;
   rating: number;
   reviews: number;
