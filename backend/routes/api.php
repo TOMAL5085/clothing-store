@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Admin\AuditLogController;
 use App\Http\Controllers\Api\V1\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Api\V1\Admin\BrandController as AdminBrandController;
 use App\Http\Controllers\Api\V1\Admin\CancellationManagementController;
+use App\Http\Controllers\Api\V1\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\V1\Admin\CmsContentController as AdminCmsContentController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
 use App\Http\Controllers\Api\V1\Admin\OrderManagementController;
@@ -135,6 +136,13 @@ Route::prefix('v1')->group(function () {
             Route::get('brands/{brand}', [AdminBrandController::class, 'show']);
             Route::match(['put', 'patch'], 'brands/{brand}', [AdminBrandController::class, 'update'])->middleware('throttle:admin-mutations');
             Route::delete('brands/{brand}', [AdminBrandController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Categories (incl. sub-categories)
+            Route::get('categories', [AdminCategoryController::class, 'index']);
+            Route::post('categories', [AdminCategoryController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('categories/{category}', [AdminCategoryController::class, 'show']);
+            Route::match(['put', 'patch'], 'categories/{category}', [AdminCategoryController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('categories/{category}', [AdminCategoryController::class, 'destroy'])->middleware('throttle:admin-mutations');
 
             Route::get('orders', [OrderManagementController::class, 'index']);
             Route::get('orders/{order}', [OrderManagementController::class, 'show']);

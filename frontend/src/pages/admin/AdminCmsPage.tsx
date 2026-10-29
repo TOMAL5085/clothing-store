@@ -33,7 +33,7 @@ interface CmsCollection {
 
 type Tab = "content" | "banners";
 
-const CONTENT_TYPES = ["announcement", "promo", "collection", "service", "homepage_section"];
+const CONTENT_TYPES = ["announcement", "promo", "collection", "service", "homepage_section", "about_us", "contact_us", "terms_conditions", "faq", "help_center"];
 const STATUSES = ["draft", "published", "archived"];
 
 const EMPTY_FORM = {
