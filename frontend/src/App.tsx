@@ -177,6 +177,11 @@ const AdminAuditPage = lazy(() => import("@/pages/admin/AdminAuditPage"));
 const AdminCmsPage = lazy(() => import("@/pages/admin/AdminCmsPage"));
 const AdminBrandsPage = lazy(() => import("@/pages/admin/AdminBrandsPage"));
 const AdminCategoriesPage = lazy(() => import("@/pages/admin/AdminCategoriesPage"));
+const AdminZonesPage = lazy(() => import("@/pages/admin/AdminZonesPage"));
+const AdminCitiesPage = lazy(() => import("@/pages/admin/AdminCitiesPage"));
+const AdminSuppliersPage = lazy(() => import("@/pages/admin/AdminSuppliersPage"));
+const AdminPurchasesPage = lazy(() => import("@/pages/admin/AdminPurchasesPage"));
+const AdminSupplierLedgerPage = lazy(() => import("@/pages/admin/AdminSupplierLedgerPage"));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
 const InfoRoutePage = lazy(() => import("@/pages/InfoRoutePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
@@ -287,6 +292,11 @@ export default function App() {
                 <Route path="/admin/content" element={<AdminCmsPage />} />
                 <Route path="/admin/brands" element={<AdminBrandsPage />} />
                 <Route path="/admin/categories" element={<AdminCategoriesPage />} />
+                <Route path="/admin/zones" element={<AdminZonesPage />} />
+                <Route path="/admin/cities" element={<AdminCitiesPage />} />
+                <Route path="/admin/suppliers" element={<AdminSuppliersPage />} />
+                <Route path="/admin/purchases" element={<AdminPurchasesPage />} />
+                <Route path="/admin/supplier-ledger" element={<AdminSupplierLedgerPage />} />
                 <Route path="/our-story" element={<InfoRoutePage />} />
                 <Route path="/careers" element={<InfoRoutePage />} />
                 <Route path="/stores" element={<InfoRoutePage />} />

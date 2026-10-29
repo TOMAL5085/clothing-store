@@ -7,20 +7,26 @@ use App\Http\Controllers\Api\V1\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Api\V1\Admin\BrandController as AdminBrandController;
 use App\Http\Controllers\Api\V1\Admin\CancellationManagementController;
 use App\Http\Controllers\Api\V1\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Api\V1\Admin\CityController as AdminCityController;
 use App\Http\Controllers\Api\V1\Admin\CmsContentController as AdminCmsContentController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
 use App\Http\Controllers\Api\V1\Admin\OrderManagementController;
 use App\Http\Controllers\Api\V1\Admin\ProductManagementController;
+use App\Http\Controllers\Api\V1\Admin\PurchaseController as AdminPurchaseController;
 use App\Http\Controllers\Api\V1\Admin\RefundManagementController;
 use App\Http\Controllers\Api\V1\Admin\ReturnManagementController;
 use App\Http\Controllers\Api\V1\Admin\ReviewManagementController;
 use App\Http\Controllers\Api\V1\Admin\ShipmentController;
+use App\Http\Controllers\Api\V1\Admin\SupplierController as AdminSupplierController;
+use App\Http\Controllers\Api\V1\Admin\SupplierLedgerController as AdminSupplierLedgerController;
+use App\Http\Controllers\Api\V1\Admin\ZoneController as AdminZoneController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BannerController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
+use App\Http\Controllers\Api\V1\CityController;
 use App\Http\Controllers\Api\V1\CmsContentController;
 use App\Http\Controllers\Api\V1\MarketingConsentController;
 use App\Http\Controllers\Api\V1\MarketingEventController;
@@ -38,7 +44,9 @@ use App\Http\Controllers\Api\V1\ProductReviewController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\SslCommerzController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
+use App\Http\Controllers\Api\V1\SupplierController;
 use App\Http\Controllers\Api\V1\WishlistController;
+use App\Http\Controllers\Api\V1\ZoneController;
 use App\Models\Product;
 use Illuminate\Support\Facades\Route;
 
@@ -50,6 +58,12 @@ Route::prefix('v1')->group(function () {
     Route::get('categories', [CategoryController::class, 'index']);
     Route::get('brands', [BrandController::class, 'index']);
     Route::get('brands/{brand}', [BrandController::class, 'show']);
+    Route::get('zones', [ZoneController::class, 'index']);
+    Route::get('zones/{zone}', [ZoneController::class, 'show']);
+    Route::get('cities', [CityController::class, 'index']);
+    Route::get('cities/{city}', [CityController::class, 'show']);
+    Route::get('suppliers', [SupplierController::class, 'index']);
+    Route::get('suppliers/{supplier}', [SupplierController::class, 'show']);
     Route::get('cms/content', [CmsContentController::class, 'index']);
     Route::get('banners', [BannerController::class, 'index']);
     Route::get('products', [ProductController::class, 'index']);
@@ -177,6 +191,40 @@ Route::prefix('v1')->group(function () {
             Route::match(['put', 'patch'], 'banners/{banner}', [AdminBannerController::class, 'update'])->middleware('throttle:admin-mutations');
             Route::delete('banners/{banner}', [AdminBannerController::class, 'destroy'])->middleware('throttle:admin-mutations');
             Route::post('banners/{banner}/image', [AdminBannerController::class, 'uploadImage'])->middleware('throttle:admin-mutations');
+
+            // Zones
+            Route::get('zones', [AdminZoneController::class, 'index']);
+            Route::post('zones', [AdminZoneController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('zones/{zone}', [AdminZoneController::class, 'show']);
+            Route::match(['put', 'patch'], 'zones/{zone}', [AdminZoneController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('zones/{zone}', [AdminZoneController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Cities
+            Route::get('cities', [AdminCityController::class, 'index']);
+            Route::post('cities', [AdminCityController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('cities/{city}', [AdminCityController::class, 'show']);
+            Route::match(['put', 'patch'], 'cities/{city}', [AdminCityController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('cities/{city}', [AdminCityController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Suppliers
+            Route::get('suppliers', [AdminSupplierController::class, 'index']);
+            Route::post('suppliers', [AdminSupplierController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('suppliers/{supplier}', [AdminSupplierController::class, 'show']);
+            Route::match(['put', 'patch'], 'suppliers/{supplier}', [AdminSupplierController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('suppliers/{supplier}', [AdminSupplierController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Purchases
+            Route::get('purchases', [AdminPurchaseController::class, 'index']);
+            Route::post('purchases', [AdminPurchaseController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('purchases/{purchase}', [AdminPurchaseController::class, 'show']);
+            Route::match(['put', 'patch'], 'purchases/{purchase}', [AdminPurchaseController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('purchases/{purchase}', [AdminPurchaseController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
+            // Supplier Ledger
+            Route::get('supplier-ledger', [AdminSupplierLedgerController::class, 'index']);
+            Route::get('supplier-ledger/{ledger}', [AdminSupplierLedgerController::class, 'show']);
+            Route::post('supplier-ledger', [AdminSupplierLedgerController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::delete('supplier-ledger/{ledger}', [AdminSupplierLedgerController::class, 'destroy'])->middleware('throttle:admin-mutations');
 
             // Analytics
             Route::get('analytics/overview', [AnalyticsController::class, 'overview']);
