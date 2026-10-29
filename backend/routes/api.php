@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AuditLogController;
 use App\Http\Controllers\Api\V1\Admin\BannerController as AdminBannerController;
+use App\Http\Controllers\Api\V1\Admin\BrandController as AdminBrandController;
 use App\Http\Controllers\Api\V1\Admin\CancellationManagementController;
 use App\Http\Controllers\Api\V1\Admin\CmsContentController as AdminCmsContentController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\V1\Admin\ReviewManagementController;
 use App\Http\Controllers\Api\V1\Admin\ShipmentController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BannerController;
+use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
@@ -45,6 +47,8 @@ Route::prefix('v1')->group(function () {
     Route::post('auth/forgot-password', [PasswordResetController::class, 'store'])->middleware('throttle:password-reset');
 
     Route::get('categories', [CategoryController::class, 'index']);
+    Route::get('brands', [BrandController::class, 'index']);
+    Route::get('brands/{brand}', [BrandController::class, 'show']);
     Route::get('cms/content', [CmsContentController::class, 'index']);
     Route::get('banners', [BannerController::class, 'index']);
     Route::get('products', [ProductController::class, 'index']);
@@ -124,6 +128,14 @@ Route::prefix('v1')->group(function () {
             Route::put('products/{product}', [ProductManagementController::class, 'update'])->middleware('throttle:admin-mutations');
             Route::delete('products/{product}', [ProductManagementController::class, 'destroy'])->middleware('throttle:admin-mutations');
             Route::post('products/{product}/inventory', [ProductManagementController::class, 'adjustInventory'])->middleware('throttle:admin-mutations');
+
+            // Brands
+            Route::get('brands', [AdminBrandController::class, 'index']);
+            Route::post('brands', [AdminBrandController::class, 'store'])->middleware('throttle:admin-mutations');
+            Route::get('brands/{brand}', [AdminBrandController::class, 'show']);
+            Route::match(['put', 'patch'], 'brands/{brand}', [AdminBrandController::class, 'update'])->middleware('throttle:admin-mutations');
+            Route::delete('brands/{brand}', [AdminBrandController::class, 'destroy'])->middleware('throttle:admin-mutations');
+
             Route::get('orders', [OrderManagementController::class, 'index']);
             Route::get('orders/{order}', [OrderManagementController::class, 'show']);
             Route::patch('orders/{order}/status', [OrderManagementController::class, 'updateStatus'])->middleware('throttle:admin-mutations');

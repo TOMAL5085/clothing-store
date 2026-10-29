@@ -15,7 +15,7 @@ class CmsContent extends Model
 
     public const STATUSES = ['draft', 'published', 'archived'];
 
-    public const TYPES = ['announcement', 'promo', 'collection', 'service', 'homepage_section'];
+    public const TYPES = ['announcement', 'promo', 'collection', 'service', 'homepage_section', 'about_us', 'contact_us', 'terms_conditions', 'faq', 'help_center'];
 
     protected $table = 'cms_contents';
 

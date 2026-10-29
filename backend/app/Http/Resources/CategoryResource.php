@@ -21,6 +21,15 @@ class CategoryResource extends JsonResource
             'tagline' => $this->tagline,
             'image' => $this->image,
             'alt' => $this->alt,
+            'sort_order' => $this->sort_order,
+            'is_active' => $this->is_active,
+            'parent' => $this->when($this->parent, function () {
+                return [
+                    'slug' => $this->parent->slug,
+                    'label' => $this->parent->label,
+                ];
+            }),
+            'has_children' => $this->when($this->relationLoaded('children'), $this->children->count(), $this->children()->exists()),
         ];
     }
 }
