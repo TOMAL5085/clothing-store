@@ -33,6 +33,19 @@ class AnalyticsController extends Controller
         return response()->json(['data' => $analytics->salesSeries($range)]);
     }
 
+    public function recentSales()
+    {
+        Gate::authorize('viewAny', Order::class);
+        $orders = Order::query()->with('user:id,name,email')->where('payment_status', 'paid')->latest()->limit(10)->get();
+        return response()->json(['data' => $orders->map(fn (Order $order) => [
+            'number' => $order->number,
+            'customer' => $order->user?->name ?? $order->shipping_address['email'] ?? 'Guest customer',
+            'total' => (float) $order->total,
+            'status' => $order->status,
+            'created_at' => $order->created_at?->toISOString(),
+        ])]);
+    }
+
     public function orders(AnalyticsRequest $request, AnalyticsService $analytics)
     {
         Gate::authorize('viewAny', Order::class);

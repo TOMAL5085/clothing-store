@@ -103,3 +103,5 @@ sample spreadsheet in staging before importing production data.
   revenue for the selected order date filters.
 - POST /support/tickets stores a public contact/support request.
 - Banner records support placement=hero|ad|homepage|sidebar.
+- GET /admin/analytics/recent-sales returns the latest paid orders for the
+  dashboard recent-sales panel.

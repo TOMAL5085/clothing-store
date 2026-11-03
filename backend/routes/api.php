@@ -328,6 +328,7 @@ Route::prefix('v1')->group(function () {
             // Analytics
             Route::get('analytics/overview', [AnalyticsController::class, 'overview']);
             Route::get('analytics/sales', [AnalyticsController::class, 'sales']);
+            Route::get('analytics/recent-sales', [AnalyticsController::class, 'recentSales']);
             Route::get('analytics/orders', [AnalyticsController::class, 'orders']);
             Route::get('analytics/products', [AnalyticsController::class, 'products']);
             Route::get('analytics/categories', [AnalyticsController::class, 'categories']);

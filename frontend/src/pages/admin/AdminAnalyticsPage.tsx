@@ -49,6 +49,14 @@ interface SalesData {
   series: SalesPoint[];
 }
 
+interface RecentSale {
+  number: string;
+  customer: string;
+  total: number;
+  status: string;
+  created_at: string;
+}
+
 interface OrdersData {
   total: number;
   by_status: Array<{ status: string; count: number }>;
@@ -258,6 +266,7 @@ export default function AdminAnalyticsPage() {
   const [reviews, setReviews] = useState<ReviewsData | null>(null);
   const [wishlist, setWishlist] = useState<WishlistData | null>(null);
   const [funnel, setFunnel] = useState<FunnelData | null>(null);
+  const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ preset });
@@ -290,9 +299,10 @@ export default function AdminAnalyticsPage() {
       api<{ data: ReviewsData }>(`/admin/analytics/reviews`),
       api<{ data: WishlistData }>(`/admin/analytics/wishlist?limit=10`),
       api<{ data: FunnelData }>(`/admin/analytics/marketing?${query}`),
+      api<{ data: RecentSale[] }>("/admin/analytics/recent-sales"),
     ]).then((results) => {
       if (cancelled) return;
-      const [overviewRes, salesRes, ordersRes, productsRes, categoriesRes, inventoryRes, reviewsRes, wishlistRes, funnelRes] = results;
+      const [overviewRes, salesRes, ordersRes, productsRes, categoriesRes, inventoryRes, reviewsRes, wishlistRes, funnelRes, recentSalesRes] = results;
       if (overviewRes.status === "rejected") {
         setError(overviewRes.reason instanceof Error ? overviewRes.reason.message : "Analytics could not be loaded.");
       } else {
@@ -306,6 +316,7 @@ export default function AdminAnalyticsPage() {
       if (reviewsRes.status === "fulfilled") setReviews(reviewsRes.value.data);
       if (wishlistRes.status === "fulfilled") setWishlist(wishlistRes.value.data);
       if (funnelRes.status === "fulfilled") setFunnel(funnelRes.value.data);
+      if (recentSalesRes.status === "fulfilled") setRecentSales(recentSalesRes.value.data);
       setLoading(false);
     });
     return () => {
@@ -420,6 +431,17 @@ export default function AdminAnalyticsPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
+            <SectionCard title="Recent sales" hint="Latest paid orders">
+              {recentSales.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-left text-sm">
+                    <thead className="text-[10px] font-bold tracking-[0.14em] uppercase text-smoke"><tr><th className="pb-3">Order</th><th className="pb-3">Customer</th><th className="pb-3">Status</th><th className="pb-3 text-right">Total</th></tr></thead>
+                    <tbody>{recentSales.map((sale) => <tr key={sale.number} className="border-t border-line dark:border-line-dark"><td className="py-3 font-semibold">{sale.number}</td><td className="py-3">{sale.customer}</td><td className="py-3 capitalize">{sale.status.replace(/_/g, " ")}</td><td className="py-3 text-right font-semibold">{format(sale.total)}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              ) : <EmptyState icon={BarChart3} title="No recent sales" body="No paid orders are available yet." />}
+            </SectionCard>
+
             <SectionCard
               title="Revenue"
               hint={sales ? `${sales.series.length} ${sales.range.group} periods` : undefined}
