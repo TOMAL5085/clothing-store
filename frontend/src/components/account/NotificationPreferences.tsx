@@ -124,8 +124,8 @@ export function NotificationPreferences({ isAdmin }: { isAdmin: boolean }) {
           onChange={(value) => flip(preference.category, "email_enabled", value)}
           label="Email"
         />
-        <Toggle checked={preference.sms_enabled} onChange={() => undefined} label="SMS · soon" disabled />
-        <Toggle checked={preference.whatsapp_enabled} onChange={() => undefined} label="WhatsApp · soon" disabled />
+        <Toggle checked={preference.sms_enabled} onChange={(value) => flip(preference.category, "sms_enabled", value)} label="SMS" />
+        <Toggle checked={preference.whatsapp_enabled} onChange={(value) => flip(preference.category, "whatsapp_enabled", value)} label="WhatsApp" />
       </div>
     </li>
   );
