@@ -196,6 +196,7 @@ const AdminSupportPage = lazy(() => import("@/pages/admin/AdminSupportPage"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
 const AdminAdsPage = lazy(() => import("@/pages/admin/AdminAdsPage"));
 const AdminSeoPage = lazy(() => import("@/pages/admin/AdminSeoPage"));
+const AdminProductReportPage = lazy(() => import("@/pages/admin/AdminProductReportPage"));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
 const InfoRoutePage = lazy(() => import("@/pages/InfoRoutePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
@@ -325,6 +326,7 @@ export default function App() {
                 <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/ads" element={<AdminAdsPage />} />
                 <Route path="/admin/seo" element={<AdminSeoPage />} />
+                <Route path="/admin/reports/product-sales" element={<AdminProductReportPage />} />
                 <Route path="/help-center" element={<InfoRoutePage />} />
                 <Route path="/our-story" element={<InfoRoutePage />} />
                 <Route path="/careers" element={<InfoRoutePage />} />
