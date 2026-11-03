@@ -82,10 +82,12 @@ This local PHP install must have `pdo_pgsql` enabled. Without a PDO database dri
 ## Production Deployment
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the full deploy sequence (backend,
-workers, scheduler, storage, payments, HTTPS, rollback) and
-[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) for pre-flight, smoke
-checks, backup, and monitoring checklists. Validate any environment with
-`php artisan app:check` from `backend/`.
+workers, scheduler, storage, payments, HTTPS, rollback) and the local
+`PRODUCTION_CHECKLIST.md` for pre-flight, smoke checks, backup, and monitoring
+checklists. `PRODUCTION_CHECKLIST.md` is kept
+as a local-only handoff document and is intentionally excluded from the Git
+repository; it may not be available after cloning from GitHub. Validate any
+environment with `php artisan app:check` from `backend/`.
 
 ## Current feature coverage
 
