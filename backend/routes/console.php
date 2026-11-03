@@ -22,3 +22,8 @@ Schedule::command('marketing:prune')
     ->weekly()
     ->timezone(config('app.timezone'))
     ->withoutOverlapping();
+
+Schedule::command('store:backup')
+    ->dailyAt('02:00')
+    ->timezone(config('app.timezone'))
+    ->withoutOverlapping();

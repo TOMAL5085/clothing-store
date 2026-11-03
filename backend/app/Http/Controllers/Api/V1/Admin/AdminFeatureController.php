@@ -62,7 +62,7 @@ class AdminFeatureController extends Controller
     {
         Gate::authorize('viewAny', Order::class);
         abort_if($request->user()->is($user), 422, 'You cannot change your own admin role here.');
-        $data = $request->validate(['role' => ['required', Rule::in(['customer', 'staff', 'manager', 'admin'])], 'status' => ['sometimes', Rule::in(['active', 'inactive'])]]);
+        $data = $request->validate(['role' => ['required', Rule::in(['customer', 'staff', 'manager', 'admin'])], 'status' => ['sometimes', Rule::in(['active', 'inactive'])], 'permissions' => ['nullable', 'array'], 'permissions.*' => [Rule::in(['catalog', 'commerce', 'orders', 'reports', 'support', 'marketing'])]]);
         $user->update($data);
         return response()->json(['data' => $user->only(['id', 'name', 'email', 'phone', 'role', 'status'])]);
     }

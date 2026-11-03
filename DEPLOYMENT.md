@@ -174,3 +174,15 @@ Before launch, configure and test:
 The courier bulk endpoint accepts CSV and XLSX uploads. Keep upload limits and
 temporary-file permissions configured at the web server/PHP layer. Marketing
 tracking is consent-aware, and visitor IP values are hashed before storage.
+
+## K. Backups and roles
+
+The application schedules php artisan store:backup daily at 02:00. For
+PostgreSQL it uses pg_dump; set BACKUP_BINARY when the executable is not on
+PATH, and ensure BACKUP_PATH is included in off-server backup storage. The
+command is a local backup mechanism, not a substitute for provider-level
+snapshots or restore testing.
+
+User permissions are stored as JSON and support administrator, manager, staff,
+and customer roles. Review the role assignments after migration and apply the
+least-privilege policy appropriate for the client's team.

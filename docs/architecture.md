@@ -55,3 +55,8 @@ Enable PHP's `pdo_pgsql` extension before running migrations/tests.
 - `BlocklistedIp` protects the public API from blocked customer IPs.
 - Assignment, auto-disbursement, reports, CSV download, cart recovery, and
   map coordinates are implemented in the admin/order APIs.
+- store:backup creates database backups using the configured database utility
+  and the scheduler runs it daily; off-server replication and restore drills
+  remain deployment responsibilities.
+- Store settings provide default SEO metadata, and the storefront persists an
+  English/Bengali language preference.

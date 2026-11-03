@@ -117,3 +117,9 @@ support tickets, coupons can be managed from the admin panel, ad placements
 are separated from hero banners, and SEO defaults are stored as public
 settings. Hosting, SSL, backups, external monitoring, and real provider
 accounts remain deployment responsibilities.
+
+The backend also provides the scheduled store:backup command. Configure
+BACKUP_PATH/BACKUP_BINARY and run php artisan schedule:work or the documented
+cron entry; the command retains only the configured number of days. A Bengali
+language preference is available in the storefront, while product/CMS copy
+remains data-owned and should be translated by the client.

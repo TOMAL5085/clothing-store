@@ -313,6 +313,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useEffect } from "react";
 import logoTextImg from "@/assets/imagery/TEXT-01-01.png";
 import { cn } from "@/utils/cn";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 function IconButton({
   label,
@@ -428,6 +429,7 @@ export function Header() {
 
         {/* right: utility icons */}
         <div className="flex items-center gap-0.5">
+          <LanguageSwitcher />
           <IconButton
             label={
               theme === "light" ? "Switch to dark mode" : "Switch to light mode"

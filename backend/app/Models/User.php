@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'phone', 'password', 'role', 'status'])]
+#[Fillable(['name', 'email', 'phone', 'password', 'role', 'status', 'permissions'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -64,6 +64,16 @@ class User extends Authenticatable
         return in_array($this->role, ['admin', 'manager', 'staff'], true);
     }
 
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isAdmin()) return true;
+        $defaults = [
+            'manager' => ['catalog', 'commerce', 'orders', 'reports', 'support', 'marketing'],
+            'staff' => ['orders', 'support'],
+        ];
+        return in_array($permission, $this->permissions ?? ($defaults[$this->role] ?? []), true);
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';
@@ -75,6 +85,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'marketing_consent' => 'array',
+            'permissions' => 'array',
         ];
     }
 }

@@ -77,3 +77,7 @@ placement, SEO defaults, customer support tickets, staff/manager/admin role
 assignment, and a product-level order report. Cloud hosting, certificates,
 automated backups, external error monitoring, and live WhatsApp/provider
 accounts still require the client's infrastructure and service credentials.
+
+The backend migration also adds persisted role permissions and the scheduled
+store:backup command. The client must configure the backup binary/path, copy
+backups off the application server, and test a restore before launch.
