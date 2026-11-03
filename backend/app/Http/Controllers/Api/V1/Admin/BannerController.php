@@ -24,6 +24,7 @@ class BannerController extends Controller
         $validated = $request->validate([
             'status' => ['sometimes', 'string', Rule::in(array_merge(['all'], Banner::STATUSES))],
             'q' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'placement' => ['sometimes', 'string', Rule::in(['hero', 'ad', 'homepage', 'sidebar'])],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -33,6 +34,7 @@ class BannerController extends Controller
                 $query->where('key', 'ilike', "%{$search}%")
                     ->orWhere('title', 'ilike', "%{$search}%");
             }))
+            ->when($validated['placement'] ?? null, fn ($query, string $placement) => $query->where('placement', $placement))
             ->orderBy('sort_order')
             ->orderBy('id')
             ->paginate($validated['per_page'] ?? 50);

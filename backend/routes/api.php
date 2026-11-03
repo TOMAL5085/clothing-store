@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\AccountController as AdminAccountController;
+use App\Http\Controllers\Api\V1\Admin\AdminFeatureController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AuditLogController;
 use App\Http\Controllers\Api\V1\Admin\BannerController as AdminBannerController;
@@ -54,6 +55,7 @@ use App\Http\Controllers\Api\V1\ProductReviewController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\SslCommerzController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
+use App\Http\Controllers\Api\V1\SupportTicketController;
 use App\Http\Controllers\Api\V1\SupplierController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use App\Http\Controllers\Api\V1\ZoneController;
@@ -83,6 +85,7 @@ Route::prefix('v1')->group(function () {
     Route::get('manual-payments', [ManualPaymentController::class, 'index']);
     Route::get('manual-payments/{payment}', [ManualPaymentController::class, 'show']);
     Route::post('visitors', [PhaseOperationsController::class, 'visitor'])->middleware('throttle:marketing-events');
+    Route::post('support/tickets', [SupportTicketController::class, 'store'])->middleware('throttle:storefront-mutations');
     Route::get('visitor-summary', [PhaseOperationsController::class, 'visitorSummary']);
     Route::get('store-settings', [PhaseOperationsController::class, 'settings']);
     Route::post('weight-price/quote', [PhaseOperationsController::class, 'weightQuote']);
@@ -161,6 +164,14 @@ Route::prefix('v1')->group(function () {
             Route::get('customers', [CustomerManagementController::class, 'index']);
             Route::get('customers/{customer}', [CustomerManagementController::class, 'show']);
             Route::patch('customers/{customer}/status', [CustomerManagementController::class, 'updateStatus'])->middleware('throttle:admin-mutations');
+            Route::get('users', [AdminFeatureController::class, 'users']);
+            Route::patch('users/{user}', [AdminFeatureController::class, 'updateUser'])->middleware('throttle:admin-mutations');
+            Route::get('coupons', [AdminFeatureController::class, 'coupons']);
+            Route::post('coupons', [AdminFeatureController::class, 'storeCoupon'])->middleware('throttle:admin-mutations');
+            Route::patch('coupons/{coupon}', [AdminFeatureController::class, 'updateCoupon'])->middleware('throttle:admin-mutations');
+            Route::delete('coupons/{coupon}', [AdminFeatureController::class, 'deleteCoupon'])->middleware('throttle:admin-mutations');
+            Route::get('support/tickets', [AdminFeatureController::class, 'tickets']);
+            Route::patch('support/tickets/{ticket}', [AdminFeatureController::class, 'updateTicket'])->middleware('throttle:admin-mutations');
             Route::get('products', [ProductManagementController::class, 'index']);
             Route::post('products', [ProductManagementController::class, 'store'])->middleware('throttle:admin-mutations');
             Route::put('products/{product}', [ProductManagementController::class, 'update'])->middleware('throttle:admin-mutations');
@@ -281,6 +292,7 @@ Route::prefix('v1')->group(function () {
             Route::post('orders/{order}/disburse', [AdminPhaseOperationsController::class, 'disburseOrder'])->middleware('throttle:admin-mutations');
             Route::post('orders/auto-disburse', [AdminPhaseOperationsController::class, 'autoDisburse'])->middleware('throttle:admin-mutations');
             Route::get('reports/orders', [AdminPhaseOperationsController::class, 'orderReport']);
+            Route::get('reports/order-products', [AdminPhaseOperationsController::class, 'orderProductsReport']);
             Route::get('reports/orders/download', [AdminPhaseOperationsController::class, 'downloadOrders']);
             Route::post('courier/bulk', [AdminPhaseOperationsController::class, 'courierBulk'])->middleware('throttle:admin-mutations');
             Route::post('courier/bulk-import', [AdminPhaseOperationsController::class, 'courierBulkImport'])->middleware('throttle:admin-mutations');

@@ -69,3 +69,11 @@ The full test suite must be run against a reachable PostgreSQL test database
 before the client signs off. Local frontend build and focused code validation
 have passed, but provider credentials, queue delivery, courier behavior, and
 live payment callbacks require staging verification.
+
+## Added application controls
+
+The current build also includes coupon administration, advertisement banner
+placement, SEO defaults, customer support tickets, staff/manager/admin role
+assignment, and a product-level order report. Cloud hosting, certificates,
+automated backups, external error monitoring, and live WhatsApp/provider
+accounts still require the client's infrastructure and service credentials.

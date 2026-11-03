@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Check, Mail, MapPin, Phone } from "lucide-react";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui/primitives";
+import { api } from "@/lib/api";
 import { usePageTitle } from "@/utils/usePageTitle";
 
 export default function ContactPage() {
@@ -15,7 +16,7 @@ export default function ContactPage() {
     setErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "Your name is required.";
@@ -24,10 +25,14 @@ export default function ContactPage() {
     setErrors(next);
     if (Object.keys(next).length) return;
     setSending(true);
-    window.setTimeout(() => {
-      setSending(false);
+    try {
+      await api("/support/tickets", { method: "POST", body: JSON.stringify(form) });
       setSent(true);
-    }, 900);
+    } catch (error) {
+      setErrors({ message: error instanceof Error ? error.message : "Your message could not be sent." });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (

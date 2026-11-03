@@ -93,3 +93,13 @@ Sanctum token.
 
 Courier bulk imports use the order number as the matching key. Validate a
 sample spreadsheet in staging before importing production data.
+
+## Newly added administration endpoints
+
+- GET|POST|PATCH|DELETE /admin/coupons manages dynamic coupon rules.
+- GET|PATCH /admin/users manages customer, staff, manager, and admin roles.
+- GET|PATCH /admin/support/tickets manages contact/support submissions.
+- GET /admin/reports/order-products returns product-level quantities and
+  revenue for the selected order date filters.
+- POST /support/tickets stores a public contact/support request.
+- Banner records support placement=hero|ad|homepage|sidebar.

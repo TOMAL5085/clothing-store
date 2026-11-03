@@ -110,3 +110,10 @@ only after consent.
 For the client-facing operating instructions, see
 [CLIENT_HANDOFF.md](CLIENT_HANDOFF.md), [ADMIN_GUIDE.md](ADMIN_GUIDE.md), and
 [FINAL_CLIENT_HANDOFF.md](FINAL_CLIENT_HANDOFF.md).
+
+Additional application controls now include /admin/coupons, /admin/ads,
+/admin/seo, /admin/support, and /admin/users. Contact messages are stored as
+support tickets, coupons can be managed from the admin panel, ad placements
+are separated from hero banners, and SEO defaults are stored as public
+settings. Hosting, SSL, backups, external monitoring, and real provider
+accounts remain deployment responsibilities.

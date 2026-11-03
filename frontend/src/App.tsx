@@ -191,6 +191,11 @@ const AdminMarketingPage = lazy(() => import("@/pages/admin/AdminMarketingPage")
 const AdminOrderWorkflowPage = lazy(() => import("@/pages/admin/AdminOrderWorkflowPage"));
 const AdminSettingsPage = lazy(() => import("@/pages/admin/AdminSettingsPage"));
 const AdminStaffReportPage = lazy(() => import("@/pages/admin/AdminStaffReportPage"));
+const AdminCouponsPage = lazy(() => import("@/pages/admin/AdminCouponsPage"));
+const AdminSupportPage = lazy(() => import("@/pages/admin/AdminSupportPage"));
+const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
+const AdminAdsPage = lazy(() => import("@/pages/admin/AdminAdsPage"));
+const AdminSeoPage = lazy(() => import("@/pages/admin/AdminSeoPage"));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
 const InfoRoutePage = lazy(() => import("@/pages/InfoRoutePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
@@ -315,6 +320,11 @@ export default function App() {
                 <Route path="/admin/order-workflow" element={<AdminOrderWorkflowPage />} />
                 <Route path="/admin/settings" element={<AdminSettingsPage />} />
                 <Route path="/admin/reports/staff-orders" element={<AdminStaffReportPage />} />
+                <Route path="/admin/coupons" element={<AdminCouponsPage />} />
+                <Route path="/admin/support" element={<AdminSupportPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+                <Route path="/admin/ads" element={<AdminAdsPage />} />
+                <Route path="/admin/seo" element={<AdminSeoPage />} />
                 <Route path="/help-center" element={<InfoRoutePage />} />
                 <Route path="/our-story" element={<InfoRoutePage />} />
                 <Route path="/careers" element={<InfoRoutePage />} />

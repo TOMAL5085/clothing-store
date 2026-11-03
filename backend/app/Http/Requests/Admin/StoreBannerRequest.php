@@ -16,6 +16,7 @@ class StoreBannerRequest extends FormRequest
     {
         return array_merge([
             'key' => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'unique:banners,key'],
+            'placement' => ['sometimes', 'string', 'max:30', Rule::in(['hero', 'ad', 'homepage', 'sidebar'])],
             'title' => ['nullable', 'string', 'max:255'],
             'subtitle' => ['nullable', 'string', 'max:255'],
             'body' => ['nullable', 'string', 'max:5000'],

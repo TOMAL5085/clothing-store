@@ -96,7 +96,7 @@ class PhaseOperationsController extends Controller
     {
         $data=$request->validate(['staff_id'=>'nullable|exists:users,id','limit'=>'nullable|integer|min:1|max:500']);
         $staff = $data['staff_id'] ? User::findOrFail($data['staff_id']) : null;
-        $staffPool = $staff ? collect([$staff]) : User::query()->where('status','active')->whereIn('role',['admin','staff'])->get();
+        $staffPool = $staff ? collect([$staff]) : User::query()->where('status','active')->whereIn('role',['admin','manager','staff'])->get();
         abort_if($staffPool->isEmpty(), 422, 'No active staff members are available for disbursement.');
         $orders=Order::query()->where('payment_status','paid')->whereIn('status',['confirmed','processing'])->whereNull('disbursed_at')->whereDoesntHave('assignments', fn($q)=>$q->whereIn('status',['assigned','disbursed']))->oldest()->limit($data['limit'] ?? 100)->get();
         $assigned=[];
@@ -126,6 +126,22 @@ class PhaseOperationsController extends Controller
     public function orderReport(Request $request)
     {
         $q=$this->filteredOrders($request); return response()->json(['data'=>$q->paginate($request->integer('per_page',50))]);
+    }
+
+    public function orderProductsReport(Request $request)
+    {
+        $orders = $this->filteredOrders($request)->with('items')->get();
+        $rows = [];
+        foreach ($orders as $order) {
+            foreach ($order->items as $item) {
+                $key = (string) ($item->product_id ?? $item->product_name);
+                if (! isset($rows[$key])) $rows[$key] = ['product_id' => $item->product_id, 'product_name' => $item->product_name, 'orders' => 0, 'quantity' => 0, 'revenue' => 0];
+                $rows[$key]['orders']++;
+                $rows[$key]['quantity'] += (int) $item->quantity;
+                $rows[$key]['revenue'] += (float) $item->line_total;
+            }
+        }
+        return response()->json(['data' => array_values($rows)]);
     }
 
     public function downloadOrders(Request $request)

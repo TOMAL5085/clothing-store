@@ -59,6 +59,11 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    public function canManageOrders(): bool
+    {
+        return in_array($this->role, ['admin', 'manager', 'staff'], true);
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';

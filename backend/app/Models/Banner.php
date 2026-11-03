@@ -16,6 +16,7 @@ class Banner extends Model
 
     protected $fillable = [
         'key',
+        'placement',
         'title',
         'subtitle',
         'body',
