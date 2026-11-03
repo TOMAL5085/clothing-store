@@ -52,7 +52,7 @@ class AdminFeatureController extends Controller
     public function users(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Order::class);
-        $users = User::query()->select(['id', 'name', 'email', 'phone', 'role', 'status', 'created_at'])
+        $users = User::query()->select(['id', 'name', 'email', 'phone', 'role', 'status', 'permissions', 'created_at'])
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($inner) => $inner->where('name', 'ilike', '%'.$request->string('q').'%')->orWhere('email', 'ilike', '%'.$request->string('q').'%')))
             ->latest()->paginate($request->integer('per_page', 50));
         return response()->json(['data' => $users]);
@@ -64,7 +64,7 @@ class AdminFeatureController extends Controller
         abort_if($request->user()->is($user), 422, 'You cannot change your own admin role here.');
         $data = $request->validate(['role' => ['required', Rule::in(['customer', 'staff', 'manager', 'admin'])], 'status' => ['sometimes', Rule::in(['active', 'inactive'])], 'permissions' => ['nullable', 'array'], 'permissions.*' => [Rule::in(['catalog', 'commerce', 'orders', 'reports', 'support', 'marketing'])]]);
         $user->update($data);
-        return response()->json(['data' => $user->only(['id', 'name', 'email', 'phone', 'role', 'status'])]);
+        return response()->json(['data' => $user->only(['id', 'name', 'email', 'phone', 'role', 'status', 'permissions'])]);
     }
 
     public function tickets(Request $request): JsonResponse
