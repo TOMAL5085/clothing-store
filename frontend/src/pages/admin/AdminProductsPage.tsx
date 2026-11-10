@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { Package, RefreshCcw, Save, Search, ShieldAlert } from "lucide-react";
+import { Package, Plus, RefreshCcw, Save, Search, ShieldAlert, X } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Product, ProductVariant } from "@/data/products";
 import type { PaginationMeta } from "@/store/catalogStore";
@@ -25,6 +25,40 @@ interface InventoryDraft {
 
 interface InventoryResponse {
   data: Product;
+}
+
+interface NewProductForm {
+  name: string;
+  slug: string;
+  category: string;
+  sku: string;
+  price: string;
+  stock_quantity: string;
+  brand: string;
+  weight: string;
+  weight_unit: string;
+  badge: string;
+  description: string;
+  image_url: string;
+}
+
+const emptyProductForm: NewProductForm = {
+  name: "",
+  slug: "",
+  category: "women",
+  sku: "",
+  price: "",
+  stock_quantity: "0",
+  brand: "JAAJ",
+  weight: "",
+  weight_unit: "kg",
+  badge: "",
+  description: "",
+  image_url: "",
+};
+
+function slugify(value: string) {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function draftKey(product: Product, variant?: ProductVariant) {
@@ -58,6 +92,9 @@ export default function AdminProductsPage() {
   const [status, setStatus] = useState("all");
   const [drafts, setDrafts] = useState<Record<string, InventoryDraft>>({});
   const [error, setError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newProduct, setNewProduct] = useState<NewProductForm>(emptyProductForm);
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams({ status, per_page: "100" });
@@ -146,6 +183,38 @@ export default function AdminProductsPage() {
     }
   };
 
+  const createProduct = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreating(true);
+    try {
+      const payload = {
+        name: newProduct.name.trim(),
+        slug: newProduct.slug.trim() || slugify(newProduct.name),
+        category: newProduct.category,
+        sku: newProduct.sku.trim(),
+        price: Number(newProduct.price),
+        stock_quantity: Number(newProduct.stock_quantity),
+        brand: newProduct.brand.trim() || "JAAJ",
+        weight: newProduct.weight ? Number(newProduct.weight) : undefined,
+        weight_unit: newProduct.weight_unit,
+        badge: newProduct.badge || undefined,
+        description: newProduct.description.trim(),
+        short_description: newProduct.description.trim().slice(0, 500),
+        images: newProduct.image_url.trim() ? [{ url: newProduct.image_url.trim(), alt: newProduct.name.trim() }] : [],
+      };
+      const response = await api<{ data: Product }>("/admin/products", { method: "POST", body: JSON.stringify(payload) });
+      setProducts((current) => [response.data, ...current]);
+      setMeta((current) => current ? { ...current, total: (current.total ?? products.length) + 1 } : current);
+      setNewProduct(emptyProductForm);
+      setShowCreate(false);
+      pushToast("Product created");
+    } catch (requestError) {
+      pushToast(requestError instanceof Error ? requestError.message : "Product could not be created");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6 lg:py-16">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -155,7 +224,10 @@ export default function AdminProductsPage() {
             Product Inventory
           </h1>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <Button type="button" icon={Plus} onClick={() => setShowCreate((current) => !current)}>
+            {showCreate ? "Close" : "Add Product"}
+          </Button>
           <Link
             to="/admin/orders"
             className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim"
@@ -200,6 +272,33 @@ export default function AdminProductsPage() {
           </Link>
         </div>
       </div>
+
+      {showCreate && (
+        <form onSubmit={createProduct} className="mt-8 border border-line bg-cream p-5 dark:border-line-dark dark:bg-nox2">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-bronze">New catalog item</p>
+              <h2 className="mt-1 font-display text-2xl text-ink dark:text-linen">Add Product</h2>
+            </div>
+            <button type="button" aria-label="Close add product form" className="text-smoke hover:text-ink dark:hover:text-linen" onClick={() => setShowCreate(false)}><X size={18} /></button>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Field label="Product name" htmlFor="new-product-name"><Input id="new-product-name" required value={newProduct.name} onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value, slug: current.slug || slugify(event.target.value) }))} /></Field>
+            <Field label="Slug" htmlFor="new-product-slug"><Input id="new-product-slug" required value={newProduct.slug} onChange={(event) => setNewProduct((current) => ({ ...current, slug: event.target.value }))} /></Field>
+            <Field label="SKU" htmlFor="new-product-sku"><Input id="new-product-sku" required value={newProduct.sku} onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))} /></Field>
+            <Field label="Category" htmlFor="new-product-category"><Select id="new-product-category" value={newProduct.category} onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))}><option value="women">Women</option><option value="men">Men</option><option value="accessories">Accessories</option></Select></Field>
+            <Field label="Price" htmlFor="new-product-price"><Input id="new-product-price" required type="number" min="0" step="0.01" value={newProduct.price} onChange={(event) => setNewProduct((current) => ({ ...current, price: event.target.value }))} /></Field>
+            <Field label="Stock quantity" htmlFor="new-product-stock"><Input id="new-product-stock" required type="number" min="0" value={newProduct.stock_quantity} onChange={(event) => setNewProduct((current) => ({ ...current, stock_quantity: event.target.value }))} /></Field>
+            <Field label="Brand" htmlFor="new-product-brand"><Input id="new-product-brand" value={newProduct.brand} onChange={(event) => setNewProduct((current) => ({ ...current, brand: event.target.value }))} /></Field>
+            <Field label="Weight" htmlFor="new-product-weight"><Input id="new-product-weight" type="number" min="0" step="0.001" value={newProduct.weight} onChange={(event) => setNewProduct((current) => ({ ...current, weight: event.target.value }))} /></Field>
+            <Field label="Weight unit" htmlFor="new-product-weight-unit"><Select id="new-product-weight-unit" value={newProduct.weight_unit} onChange={(event) => setNewProduct((current) => ({ ...current, weight_unit: event.target.value }))}><option value="g">g</option><option value="kg">kg</option><option value="lb">lb</option><option value="oz">oz</option></Select></Field>
+            <Field label="Badge" htmlFor="new-product-badge"><Select id="new-product-badge" value={newProduct.badge} onChange={(event) => setNewProduct((current) => ({ ...current, badge: event.target.value }))}><option value="">None</option><option value="New">New</option><option value="Bestseller">Bestseller</option><option value="Sale">Sale</option></Select></Field>
+            <Field label="Image URL" htmlFor="new-product-image"><Input id="new-product-image" type="url" placeholder="https://..." value={newProduct.image_url} onChange={(event) => setNewProduct((current) => ({ ...current, image_url: event.target.value }))} /></Field>
+          </div>
+          <Field label="Description" htmlFor="new-product-description" className="mt-4"><textarea id="new-product-description" required rows={4} value={newProduct.description} onChange={(event) => setNewProduct((current) => ({ ...current, description: event.target.value }))} className="w-full border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-bronze dark:border-line-dark dark:bg-nox dark:text-linen" /></Field>
+          <div className="mt-5 flex justify-end"><Button type="submit" icon={Plus} loading={creating}>Create Product</Button></div>
+        </form>
+      )}
 
       <div className="mt-8 grid gap-3 border border-line bg-cream p-4 dark:border-line-dark dark:bg-nox2 md:grid-cols-[1fr_180px_auto]">
         <Field label="Search products" htmlFor="admin-product-search">
