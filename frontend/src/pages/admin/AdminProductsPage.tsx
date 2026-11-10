@@ -39,7 +39,7 @@ interface NewProductForm {
   weight_unit: string;
   badge: string;
   description: string;
-  image_url: string;
+  image_file: File | null;
 }
 
 const emptyProductForm: NewProductForm = {
@@ -54,7 +54,7 @@ const emptyProductForm: NewProductForm = {
   weight_unit: "kg",
   badge: "",
   description: "",
-  image_url: "",
+  image_file: null,
 };
 
 function slugify(value: string) {
@@ -187,6 +187,13 @@ export default function AdminProductsPage() {
     event.preventDefault();
     setCreating(true);
     try {
+      let imageUrl: string | undefined;
+      if (newProduct.image_file) {
+        const imageForm = new FormData();
+        imageForm.append("image", newProduct.image_file);
+        const uploaded = await api<{ data: { url: string } }>("/admin/products/image", { method: "POST", body: imageForm });
+        imageUrl = uploaded.data.url;
+      }
       const payload = {
         name: newProduct.name.trim(),
         slug: newProduct.slug.trim() || slugify(newProduct.name),
@@ -200,7 +207,7 @@ export default function AdminProductsPage() {
         badge: newProduct.badge || undefined,
         description: newProduct.description.trim(),
         short_description: newProduct.description.trim().slice(0, 500),
-        images: newProduct.image_url.trim() ? [{ url: newProduct.image_url.trim(), alt: newProduct.name.trim() }] : [],
+        images: imageUrl ? [{ url: imageUrl, alt: newProduct.name.trim() }] : [],
       };
       const response = await api<{ data: Product }>("/admin/products", { method: "POST", body: JSON.stringify(payload) });
       setProducts((current) => [response.data, ...current]);
@@ -293,7 +300,7 @@ export default function AdminProductsPage() {
             <Field label="Weight" htmlFor="new-product-weight"><Input id="new-product-weight" type="number" min="0" step="0.001" value={newProduct.weight} onChange={(event) => setNewProduct((current) => ({ ...current, weight: event.target.value }))} /></Field>
             <Field label="Weight unit" htmlFor="new-product-weight-unit"><Select id="new-product-weight-unit" value={newProduct.weight_unit} onChange={(event) => setNewProduct((current) => ({ ...current, weight_unit: event.target.value }))}><option value="g">g</option><option value="kg">kg</option><option value="lb">lb</option><option value="oz">oz</option></Select></Field>
             <Field label="Badge" htmlFor="new-product-badge"><Select id="new-product-badge" value={newProduct.badge} onChange={(event) => setNewProduct((current) => ({ ...current, badge: event.target.value }))}><option value="">None</option><option value="New">New</option><option value="Bestseller">Bestseller</option><option value="Sale">Sale</option></Select></Field>
-            <Field label="Image URL" htmlFor="new-product-image"><Input id="new-product-image" type="url" placeholder="https://..." value={newProduct.image_url} onChange={(event) => setNewProduct((current) => ({ ...current, image_url: event.target.value }))} /></Field>
+            <Field label="Product image" htmlFor="new-product-image"><Input id="new-product-image" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setNewProduct((current) => ({ ...current, image_file: event.target.files?.[0] ?? null }))} /></Field>
           </div>
           <Field label="Description" htmlFor="new-product-description" className="mt-4"><textarea id="new-product-description" required rows={4} value={newProduct.description} onChange={(event) => setNewProduct((current) => ({ ...current, description: event.target.value }))} className="w-full border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-bronze dark:border-line-dark dark:bg-nox dark:text-linen" /></Field>
           <div className="mt-5 flex justify-end"><Button type="submit" icon={Plus} loading={creating}>Create Product</Button></div>

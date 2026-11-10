@@ -16,6 +16,7 @@ use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -57,6 +58,17 @@ class ProductManagementController extends Controller
         ]);
 
         return response()->json(['data' => ProductResource::make($product)], 201);
+    }
+
+    public function uploadImage(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
+        ]);
+
+        $path = $validated['image']->storeAs('products/uploads', Str::uuid().'.'.$validated['image']->extension(), 'public');
+
+        return response()->json(['data' => ['url' => Storage::disk('public')->url($path)]]);
     }
 
     public function update(UpdateProductRequest $request, Product $product, AuditLogger $audit): ProductResource

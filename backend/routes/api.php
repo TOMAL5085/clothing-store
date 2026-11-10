@@ -173,6 +173,7 @@ Route::prefix('v1')->group(function () {
             Route::get('support/tickets', [AdminFeatureController::class, 'tickets']);
             Route::patch('support/tickets/{ticket}', [AdminFeatureController::class, 'updateTicket'])->middleware('throttle:admin-mutations');
             Route::get('products', [ProductManagementController::class, 'index']);
+            Route::post('products/image', [ProductManagementController::class, 'uploadImage'])->middleware('throttle:admin-mutations');
             Route::post('products', [ProductManagementController::class, 'store'])->middleware('throttle:admin-mutations');
             Route::put('products/{product}', [ProductManagementController::class, 'update'])->middleware('throttle:admin-mutations');
             Route::delete('products/{product}', [ProductManagementController::class, 'destroy'])->middleware('throttle:admin-mutations');
