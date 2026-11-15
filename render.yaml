@@ -14,11 +14,11 @@ services:
       - key: APP_KEY
         sync: false
       - key: APP_URL
-        sync: false
+        value: https://clothing-store-api-5vhc.onrender.com
       - key: FRONTEND_URLS
-        sync: false
+        value: https://clothing-store-frontend-2tm7.onrender.com
       - key: SANCTUM_STATEFUL_DOMAINS
-        sync: false
+        value: clothing-store-frontend-2tm7.onrender.com
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
@@ -56,4 +56,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        sync: false
+        value: https://clothing-store-api-5vhc.onrender.com/api/v1
