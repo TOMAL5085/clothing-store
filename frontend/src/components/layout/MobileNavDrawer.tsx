@@ -93,7 +93,7 @@ export function MobileNavDrawer() {
                     <Link
                       to={item.href}
                       onClick={() => setOpen(false)}
-                      className={`block py-3 font-display text-[15px] font-bold uppercase tracking-[0.18em] ${
+                      className={`block py-3 font-sans text-[15px] font-bold uppercase tracking-[0.18em] ${
                         item.emphasis ? "text-accent" : "text-foreground"
                       }`}
                     >

@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,600;6..96,700&family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ */
@@ -50,9 +51,10 @@
   --color-line-dark: #302b22;
 
   /* Typography */
-  --font-display: "Fraunces", "Archivo Variable", "Archivo", Georgia, serif;
-  --font-sans: "Manrope", "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-logo: "Fraunces", ui-serif, Georgia, serif;
+  --font-display: "Bodoni Moda", Georgia, serif;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-logo: "Bodoni Moda", Georgia, serif;
 
   /* Editorial tracking presets */
   --tracking-eyebrow: 0.34em;

@@ -35,7 +35,7 @@ export function InfoSection({
 }) {
   return (
     <section>
-      <h2 className="font-display text-2xl text-ink dark:text-linen">{heading}</h2>
+      <h2 className="font-serif text-2xl text-ink dark:text-linen">{heading}</h2>
       <div className="mt-3 space-y-3 text-sm leading-relaxed text-smoke dark:text-linen-dim">
         {children}
       </div>

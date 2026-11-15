@@ -291,7 +291,7 @@ export function EmptyState({
       <span className="flex h-14 w-14 items-center justify-center rounded-full border border-line bg-fog dark:border-line-dark dark:bg-nox2">
         <Icon className="h-6 w-6 text-smoke dark:text-linen-dim" aria-hidden />
       </span>
-      <h2 className="font-display text-2xl text-ink dark:text-linen">{title}</h2>
+      <h2 className="font-serif text-2xl text-ink dark:text-linen">{title}</h2>
       <p className="max-w-sm text-sm leading-relaxed text-smoke dark:text-linen-dim">{body}</p>
       {actionLabel && actionTo && (
         <LinkButton to={actionTo} size="md" className="mt-2">
@@ -323,7 +323,7 @@ export function SectionHeading({
         {kicker && (
           <p className="text-[11px] font-bold tracking-[0.22em] uppercase text-bronze">{kicker}</p>
         )}
-        <h2 className="font-display text-3xl leading-tight text-ink sm:text-4xl dark:text-linen">
+        <h2 className="font-serif text-3xl leading-tight text-ink sm:text-4xl dark:text-linen">
           {title}
         </h2>
         {body && <p className="text-sm leading-relaxed text-smoke dark:text-linen-dim">{body}</p>}

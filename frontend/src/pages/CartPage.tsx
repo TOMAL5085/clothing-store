@@ -97,7 +97,7 @@ export default function CartPage() {
                 <div className="flex min-w-0 flex-1 flex-col justify-between gap-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <Link to={slug ? `/product/${slug}` : "/shop"} className="font-display text-xl leading-snug text-ink transition-colors hover:text-bronze dark:text-linen">
+                      <Link to={slug ? `/product/${slug}` : "/shop"} className="font-serif text-xl leading-snug text-ink transition-colors hover:text-bronze dark:text-linen">
                         {name}
                       </Link>
                       <p className="mt-1 text-xs tracking-[0.12em] uppercase text-smoke dark:text-linen-dim">

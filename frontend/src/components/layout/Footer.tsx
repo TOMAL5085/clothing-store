@@ -163,7 +163,7 @@ export function Footer() {
 
           {FOOTER_GROUPS.map((group) => (
             <nav key={group.heading} aria-label={group.heading}>
-              <h3 className="font-display text-[11px] font-bold uppercase tracking-nav text-ink-foreground">
+              <h3 className="font-serif text-[11px] font-bold uppercase tracking-nav text-ink-foreground">
                 {group.heading}
               </h3>
               <ul className="mt-5 space-y-2.5">

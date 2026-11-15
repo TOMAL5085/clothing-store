@@ -106,7 +106,7 @@ export default function ProductPage() {
         <div className="flex flex-col gap-6 lg:py-2">
           <div className="space-y-3">
             <p className="text-[11px] font-bold tracking-[0.22em] uppercase text-bronze">{product.category}</p>
-            <h1 className="font-display text-3xl leading-tight text-ink sm:text-4xl dark:text-linen">
+          <h1 className="font-serif text-3xl leading-tight text-ink sm:text-4xl dark:text-linen">
               {product.name}
             </h1>
             <Rating value={product.rating} reviews={product.reviews} />
@@ -282,7 +282,7 @@ export default function ProductPage() {
             className="relative w-full max-w-lg bg-cream p-6 shadow-2xl sm:p-8 dark:bg-nox2"
           >
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="font-display text-2xl text-ink dark:text-linen">Size Guide</h2>
+            <h2 className="font-serif text-2xl text-ink dark:text-linen">Size Guide</h2>
               <button
                 type="button"
                 onClick={() => setGuideOpen(false)}

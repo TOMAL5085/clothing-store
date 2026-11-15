@@ -413,7 +413,7 @@ export function Header() {
               to={item.href}
               className={({ isActive }) =>
                 cn(
-                  "group relative py-2 font-display text-[11px] font-semibold uppercase tracking-nav transition-colors duration-300",
+                  "group relative py-2 font-sans text-[11px] font-semibold uppercase tracking-nav transition-colors duration-300",
                   item.emphasis
                     ? "text-accent"
                     : "text-foreground/80 hover:text-foreground",
@@ -460,7 +460,7 @@ export function Header() {
               <span className="flex h-10 w-10 items-center justify-center text-foreground/85 transition-colors duration-300 hover:text-foreground">
                 <Bell size={18} strokeWidth={1.6} absoluteStrokeWidth />
                 {unreadCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center bg-accent px-1 font-display text-[9px] font-bold leading-none text-white">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center bg-accent px-1 font-sans text-[9px] font-bold leading-none text-white">
                     {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
                 )}
@@ -487,7 +487,7 @@ export function Header() {
             <span className="relative flex h-10 w-10 items-center justify-center text-foreground/85 transition-colors duration-300 hover:text-foreground">
               <ShoppingBag size={18} strokeWidth={1.6} absoluteStrokeWidth />
               {cartCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center bg-accent px-1 font-display text-[9px] font-bold leading-none text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center bg-accent px-1 font-sans text-[9px] font-bold leading-none text-white">
                   {cartCount}
                 </span>
               )}

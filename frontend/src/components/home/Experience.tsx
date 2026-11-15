@@ -21,7 +21,7 @@ export function Experience() {
               <br />
               {EXPERIENCE.titleLine2}
             </h2>
-            <p className="mt-6 font-display text-[13px] font-bold uppercase tracking-caption">
+            <p className="mt-6 font-sans text-[13px] font-bold uppercase tracking-caption">
               {EXPERIENCE.statement}
             </p>
             <p className="mt-2.5 max-w-[340px] text-[13.5px] leading-relaxed text-ink-muted">

@@ -243,7 +243,7 @@ function getToneClasses(tone: LogoTone) {
 function renderLogoContent(variant: LogoVariant, tone: LogoTone, alt: string) {
   // font-serif এবং font-black দিয়ে সব Variant-এ একই Serif বোল্ড ফন্ট নিশ্চিত করা হয়েছে
   const baseClasses =
-    "flex select-none items-center justify-center font-serif font-black uppercase leading-none tracking-[0.05em] antialiased";
+    "flex select-none items-center justify-center font-display font-black uppercase leading-none tracking-[0.05em] antialiased";
   const toneClasses = getToneClasses(tone);
 
   if (variant === "monogram") {

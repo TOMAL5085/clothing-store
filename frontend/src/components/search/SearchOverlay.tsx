@@ -99,7 +99,7 @@ export function SearchOverlay() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search trench, blazer, leather…"
               autoComplete="off"
-              className="w-full bg-transparent font-display text-2xl text-ink placeholder:text-smoke/50 focus:outline-none sm:text-3xl dark:text-linen dark:placeholder:text-linen-dim/50"
+              className="w-full bg-transparent font-sans text-2xl text-ink placeholder:text-smoke/50 focus:outline-none sm:text-3xl dark:text-linen dark:placeholder:text-linen-dim/50"
             />
             {query && (
               <button

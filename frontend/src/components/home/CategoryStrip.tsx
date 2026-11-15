@@ -30,7 +30,7 @@ export function CategoryStrip() {
                 size={28}
                 className="transition-transform duration-500 ease-out group-hover:-translate-y-1"
               />
-              <span className="font-display text-[10px] font-bold uppercase tracking-caption">
+              <span className="font-sans text-[10px] font-bold uppercase tracking-caption">
                 {category.label}
               </span>
             </Link>

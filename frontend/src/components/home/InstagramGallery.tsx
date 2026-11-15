@@ -31,7 +31,7 @@ export function InstagramGallery() {
               href={INSTAGRAM.href}
               target="_blank"
               rel="noreferrer"
-              className="font-display text-[11px] font-bold uppercase tracking-nav text-muted transition-colors duration-300 hover:text-foreground"
+              className="font-sans text-[11px] font-bold uppercase tracking-nav text-muted transition-colors duration-300 hover:text-foreground"
             >
               {INSTAGRAM.handle}
             </a>

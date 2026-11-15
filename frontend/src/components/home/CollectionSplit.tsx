@@ -35,7 +35,7 @@ export function CollectionSplit() {
                 <p className="font-display text-[30px] font-extrabold uppercase leading-none tracking-[0.06em] text-white lg:text-[38px]">
                   {tile.title}
                 </p>
-                <p className="mt-1.5 font-display text-[13px] font-bold uppercase tracking-eyebrow text-white/75">
+                <p className="mt-1.5 font-sans text-[13px] font-bold uppercase tracking-eyebrow text-white/75">
                   {tile.subtitle}
                 </p>
                 <p className="mt-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-nav text-white/85 transition-colors duration-300 group-hover:text-white">

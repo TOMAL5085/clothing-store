@@ -22,7 +22,7 @@ export function ServiceBar() {
               <div className="flex items-center gap-4">
                 <Icon size={24} strokeWidth={1.3} absoluteStrokeWidth className="shrink-0 text-foreground" />
                 <div>
-                  <h3 className="font-display text-[11px] font-bold uppercase tracking-caption">
+                  <h3 className="font-sans text-[11px] font-bold uppercase tracking-caption">
                     {point.title}
                   </h3>
                   <p className="mt-1.5 text-[12px] text-muted">{point.description}</p>

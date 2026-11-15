@@ -11,7 +11,7 @@ type Variant = "solid" | "solidWhite" | "outline" | "outlineWhite";
 type Size = "md" | "sm" | "lg";
 
 const base =
-  "inline-flex select-none items-center justify-center gap-3 font-display font-semibold uppercase tracking-nav transition-colors duration-300 ease-out rounded-none";
+  "inline-flex select-none items-center justify-center gap-3 font-sans font-semibold uppercase tracking-nav transition-colors duration-300 ease-out rounded-none";
 
 const variants: Record<Variant, string> = {
   solid: "bg-foreground text-background hover:bg-hover",

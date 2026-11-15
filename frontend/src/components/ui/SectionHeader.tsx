@@ -27,7 +27,7 @@ export function SectionHeader({
   const showArrows = Boolean(onPrev || onNext);
   return (
     <div className={cn("flex items-end justify-between gap-6", className)}>
-      <h2 className="font-display text-[17px] font-extrabold uppercase leading-none tracking-[0.16em] md:text-[19px]">
+      <h2 className="font-serif text-[17px] font-extrabold uppercase leading-none tracking-[0.16em] md:text-[19px]">
         {title}
       </h2>
       <div className="flex items-center gap-5">
