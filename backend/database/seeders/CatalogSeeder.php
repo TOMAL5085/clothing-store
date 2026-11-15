@@ -94,12 +94,12 @@ class CatalogSeeder extends Seeder
                 $product->images()->create(['url' => $url, 'alt' => $alt, 'sort_order' => $order + 1]);
             }
 
-            $product->variants()->delete();
             foreach ($productSizes as $size) {
                 foreach ($productColors as $color) {
-                    $product->variants()->create([
+                    $product->variants()->updateOrCreate([
                         'size_id' => $sizes[$size]->id,
                         'color_id' => $colors[$color]->id,
+                    ], [
                         'sku' => 'JAAJ-'.Str::upper(Str::slug($externalId.'-'.$size.'-'.$color, '-')),
                         'price' => $price,
                         'stock_quantity' => 18,
