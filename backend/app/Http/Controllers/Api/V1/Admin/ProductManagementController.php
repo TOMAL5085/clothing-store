@@ -175,6 +175,17 @@ class ProductManagementController extends Controller
             }
         }
 
+        if ($variants === []) {
+            $variants = [[
+                'size' => 'One Size',
+                'sku' => $product->sku.'-DEFAULT',
+                'price' => $product->price,
+                'stock_quantity' => $product->stock_quantity,
+                'low_stock_threshold' => $product->low_stock_threshold,
+                'is_active' => true,
+            ]];
+        }
+
         if (is_array($variants)) {
             $seen = [];
             foreach ($variants as $variantData) {
