@@ -186,3 +186,18 @@ snapshots or restore testing.
 User permissions are stored as JSON and support administrator, manager, staff,
 and customer roles. Review the role assignments after migration and apply the
 least-privilege policy appropriate for the client's team.
+
+## L. Free demo deployment with Render
+
+The repository includes `render.yaml` and `backend/Dockerfile` for a temporary
+demo deployment. Create a free Render Blueprint from the GitHub repository;
+it provisions a free Laravel API service and a free static frontend service.
+Use an external PostgreSQL provider such as Neon for the database, then set
+the `APP_KEY`, `APP_URL`, `FRONTEND_URLS`, `SANCTUM_STATEFUL_DOMAINS`, and
+`DB_*` values marked `sync: false` in Render. After the API URL is known, set
+`VITE_API_URL` on the frontend service to `https://<api-host>/api/v1`.
+
+This is demo-only infrastructure: the API sleeps when idle, the free service
+has limited resources, and local uploaded files are not durable across
+restarts. Use an object-storage disk and a paid/production service before
+accepting real orders.
