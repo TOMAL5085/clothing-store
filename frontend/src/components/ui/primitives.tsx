@@ -208,21 +208,23 @@ export function QuantityStepper({
 export function Price({
   amount,
   compareAt,
+  currency,
   className,
   large,
 }: {
   amount: number;
   compareAt?: number;
+  currency?: string;
   className?: string;
   large?: boolean;
 }) {
   const format = useCurrencyStore((s) => s.format);
   return (
     <span className={cn("inline-flex items-baseline gap-2", className)}>
-      <span className={cn("font-semibold", large ? "text-xl" : "text-sm")}>{format(amount)}</span>
+      <span className={cn("font-semibold", large ? "text-xl" : "text-sm")}>{currency ? new Intl.NumberFormat(currency === "BDT" ? "bn-BD" : "en-US", { style: "currency", currency }).format(amount) : format(amount)}{currency && <span className="ml-1 text-[0.65em] font-bold tracking-[0.08em] text-smoke dark:text-linen-dim">{currency}</span>}</span>
       {compareAt && compareAt > amount && (
         <span className="text-sm text-smoke line-through dark:text-linen-dim">
-          {format(compareAt)}
+          {currency ? new Intl.NumberFormat(currency === "BDT" ? "bn-BD" : "en-US", { style: "currency", currency }).format(compareAt) : format(compareAt)}{currency && ` ${currency}`}
         </span>
       )}
     </span>

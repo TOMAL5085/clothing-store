@@ -1,4 +1,4 @@
-export type Category = "women" | "men" | "accessories";
+export type Category = "women" | "men" | "accessories" | "kids" | "decor";
 
 export interface Swatch {
   name: string;
@@ -23,6 +23,8 @@ export interface Product {
   name: string;
   category: Category;
   price: number; // base USD
+  currency?: string;
+  subcategory?: string | null;
   weight?: number;
   weightUnit?: string;
   compareAt?: number;

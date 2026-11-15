@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type Currency = "USD" | "EUR" | "GBP";
+export type Currency = "USD" | "BDT" | "EUR" | "GBP";
 
 export const CURRENCIES: Array<{
   code: Currency;
@@ -11,6 +11,7 @@ export const CURRENCIES: Array<{
   rate: number;
 }> = [
   { code: "USD", symbol: "$", label: "US Dollar", locale: "en-US", rate: 1 },
+  { code: "BDT", symbol: "৳", label: "Bangladeshi Taka", locale: "bn-BD", rate: 117 },
   { code: "EUR", symbol: "€", label: "Euro", locale: "de-DE", rate: 0.92 },
   { code: "GBP", symbol: "£", label: "British Pound", locale: "en-GB", rate: 0.79 },
 ];

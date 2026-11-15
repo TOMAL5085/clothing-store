@@ -194,7 +194,7 @@ export function SearchOverlay() {
                           <span className="mt-0.5 block text-[10px] font-semibold tracking-[0.16em] uppercase text-smoke dark:text-linen-dim">
                             {product.category}
                           </span>
-                          <Price amount={product.price} compareAt={product.compareAt} className="mt-1" />
+                          <Price amount={product.price} compareAt={product.compareAt} currency={product.currency} className="mt-1" />
                         </span>
                         <ArrowUpRight className="h-4 w-4 shrink-0 text-smoke transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden />
                       </Link>

@@ -31,7 +31,7 @@ class SslCommerzGateway implements PaymentGateway
             'store_id' => $storeId,
             'store_passwd' => $storePassword,
             'total_amount' => number_format((float) $order->total, 2, '.', ''),
-            'currency' => strtoupper((string) config('payments.sslcommerz.currency', 'USD')),
+            'currency' => strtoupper((string) $order->currency),
             'tran_id' => $payment->reference,
             'success_url' => $base.'/api/v1/payments/sslcommerz/success',
             'fail_url' => $base.'/api/v1/payments/sslcommerz/fail',

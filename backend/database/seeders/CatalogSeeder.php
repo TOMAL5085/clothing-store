@@ -7,7 +7,6 @@ use App\Models\Color;
 use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\Size;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -22,6 +21,8 @@ class CatalogSeeder extends Seeder
             ['slug' => 'women', 'label' => 'Women', 'tagline' => 'Soft tailoring & fluid essentials', 'image' => '/imagery/collection-women.jpg', 'alt' => 'Woman against a draped beige backdrop', 'sort_order' => 1],
             ['slug' => 'men', 'label' => 'Men', 'tagline' => 'The uniform, refined', 'image' => '/imagery/collection-men.jpg', 'alt' => 'Man in minimal black attire on white', 'sort_order' => 2],
             ['slug' => 'accessories', 'label' => 'Accessories', 'tagline' => 'Objects in leather & acetate', 'image' => '/imagery/club-giftbox.jpg', 'alt' => 'Handbag and accessories on a retail display', 'sort_order' => 3],
+            ['slug' => 'kids', 'label' => 'Kids', 'tagline' => 'Everyday pieces for little originals', 'image' => '/imagery/collection-women.jpg', 'alt' => 'Kids collection', 'sort_order' => 4],
+            ['slug' => 'decor', 'label' => 'Decor', 'tagline' => 'Objects for considered spaces', 'image' => '/imagery/experience-architecture.jpg', 'alt' => 'Decor collection', 'sort_order' => 5],
         ])->mapWithKeys(fn ($data) => [$data['slug'] => Category::updateOrCreate(['slug' => $data['slug']], $data)]);
 
         $colors = collect([
@@ -34,7 +35,7 @@ class CatalogSeeder extends Seeder
             'Chalk' => '#f4f2ec',
         ])->mapWithKeys(fn ($hex, $name) => [$name => Color::updateOrCreate(['name' => $name], ['hex' => $hex])]);
 
-        $sizes = collect(['XS', 'S', 'M', 'L', 'XL', 'One Size'])
+        $sizes = collect(['XS', 'S', 'M', 'L', 'XL', 'XXL', 'One Size'])
             ->mapWithKeys(fn ($name, $index) => [$name => Size::updateOrCreate(['name' => $name], ['sort_order' => $index + 1])]);
 
         Coupon::updateOrCreate(['code' => 'JAAJ10'], [

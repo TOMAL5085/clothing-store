@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Services\CartService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use App\Services\CartService;
 
 class CartResource extends JsonResource
 {
@@ -33,6 +33,7 @@ class CartResource extends JsonResource
                 'qty' => $item->quantity,
                 'quantity' => $item->quantity,
                 'unitPrice' => $price,
+                'currency' => $item->product->currency,
                 'lineTotal' => round($price * $item->quantity, 2),
                 'availableStock' => $availableStock,
                 'inStock' => $item->product->in_stock && $availableStock >= $item->quantity,
@@ -42,6 +43,7 @@ class CartResource extends JsonResource
 
         $cartService = app(CartService::class);
         $summary = $cartService->totals($this->resource);
+        $currency = $cartService->currency($this->resource);
         $coupon = $cartService->coupon($this->resource);
 
         return [
@@ -54,6 +56,7 @@ class CartResource extends JsonResource
                 'value' => (float) $coupon->value,
             ] : null,
             'summary' => $summary,
+            'currency' => $currency,
         ];
     }
 }

@@ -23,6 +23,7 @@ class Product extends Model
         'description',
         'short_description',
         'price',
+        'currency',
         'compare_at_price',
         'sku',
         'weight',

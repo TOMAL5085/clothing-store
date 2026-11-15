@@ -97,7 +97,7 @@ export function ProductCard({ product, priority }: { product: Product; priority?
               {product.name}
             </Link>
           </h3>
-          <Price amount={product.price} compareAt={product.compareAt} className="shrink-0" />
+          <Price amount={product.price} compareAt={product.compareAt} currency={product.currency} className="shrink-0" />
         </div>
         <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-smoke dark:text-linen-dim">
           {product.category}

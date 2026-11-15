@@ -5,7 +5,7 @@ import { cn } from "@/utils/cn";
 
 export function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
-  const images = product.images;
+  const images = product.images.length ? product.images : ["/imagery/collection-women.jpg"];
 
   return (
     <div className="flex flex-col-reverse gap-4 sm:flex-row">

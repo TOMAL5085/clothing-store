@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { SearchX, SlidersHorizontal, X } from "lucide-react";
 import type { Category, Product } from "@/data/products";
 import { useCatalogStore, type PaginationMeta } from "@/store/catalogStore";
@@ -25,12 +25,15 @@ const CATEGORY_TABS: Array<{ id: Category | "all"; label: string }> = [
   { id: "all", label: "All" },
   { id: "women", label: "Women" },
   { id: "men", label: "Men" },
+  { id: "kids", label: "Kids" },
+  { id: "decor", label: "Decor" },
   { id: "accessories", label: "Accessories" },
 ];
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams();
-  const category = (params.get("category") as Category | null) ?? null;
+  const location = useLocation();
+  const category = (params.get("category") as Category | null) ?? (location.pathname === "/decor" ? "decor" : null);
   const query = params.get("q") ?? "";
   const sort = params.get("sort") ?? "featured";
 

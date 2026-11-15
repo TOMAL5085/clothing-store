@@ -17,6 +17,7 @@ export interface CartLine {
   quantity?: number;
   unitPrice?: number;
   lineTotal?: number;
+  currency?: string;
   availableStock?: number;
   inStock?: boolean;
   addedAt: number;
@@ -37,6 +38,7 @@ interface CartResponse {
     promo: string | null;
     coupon?: { code: string; type: string; value: number } | null;
     summary: CartSummary;
+    currency?: string;
   };
 }
 
@@ -44,6 +46,7 @@ interface CartState {
   items: CartLine[];
   promo: string | null;
   summary: CartSummary;
+  currency: string;
   loading: boolean;
   error: string | null;
   loadCart: () => Promise<void>;
@@ -80,6 +83,7 @@ function normalize(response: CartResponse) {
     items: response.data.items.map((item) => ({ ...item, addedAt: item.addedAt ?? Date.now() })),
     promo: response.data.promo,
     summary: response.data.summary,
+    currency: response.data.currency ?? "USD",
     error: null,
     loading: false,
   };
@@ -102,6 +106,7 @@ export const useCartStore = create<CartState>()(
       items: [],
       promo: null,
       summary: emptySummary,
+      currency: "USD",
       loading: false,
       error: null,
       loadCart: async () => {
@@ -165,7 +170,7 @@ export const useCartStore = create<CartState>()(
             method: "DELETE",
             body: JSON.stringify(withCartToken()),
           });
-          set({ items: [], promo: null, summary: emptySummary, error: null });
+          set({ items: [], promo: null, summary: emptySummary, currency: "USD", error: null });
         } catch (error) {
           set({ error: message(error) });
           throw error;
@@ -174,7 +179,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "jaaj-cart",
-      partialize: (state) => ({ items: state.items, promo: state.promo, summary: state.summary }),
+      partialize: (state) => ({ items: state.items, promo: state.promo, summary: state.summary, currency: state.currency }),
     },
   ),
 );

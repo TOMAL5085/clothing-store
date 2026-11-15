@@ -28,7 +28,7 @@ class StripeGateway implements PaymentGateway
         }
 
         $frontend = rtrim((string) config('payments.frontend_url'), '/');
-        $currency = strtolower((string) config('payments.stripe.currency', 'usd'));
+        $currency = strtolower((string) $order->currency);
         $amount = Money::toMinor($order->total);
 
         try {

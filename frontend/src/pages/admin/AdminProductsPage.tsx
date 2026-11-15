@@ -23,6 +23,11 @@ interface InventoryDraft {
   lowStockThreshold: string;
 }
 
+interface PricingDraft {
+  price: string;
+  currency: string;
+}
+
 interface InventoryResponse {
   data: Product;
 }
@@ -31,31 +36,52 @@ interface NewProductForm {
   name: string;
   slug: string;
   category: string;
+  subcategory: string;
   sku: string;
   price: string;
+  currency: string;
   stock_quantity: string;
   brand: string;
   weight: string;
   weight_unit: string;
   badge: string;
   description: string;
-  image_file: File | null;
+  image_files: File[];
+  sizes: string[];
+  custom_size: string;
+  colors: Array<{ name: string; hex: string }>;
+  custom_color_name: string;
+  custom_color_hex: string;
 }
 
 const emptyProductForm: NewProductForm = {
   name: "",
   slug: "",
   category: "women",
+  subcategory: "",
   sku: "",
   price: "",
+  currency: "USD",
   stock_quantity: "0",
   brand: "JAAJ",
   weight: "",
   weight_unit: "kg",
   badge: "",
   description: "",
-  image_file: null,
+  image_files: [],
+  sizes: [],
+  custom_size: "",
+  colors: [],
+  custom_color_name: "",
+  custom_color_hex: "#1c1a17",
 };
+
+const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+const DEFAULT_COLORS = [
+  { name: "Bone", hex: "#e6dfd0" }, { name: "Oat", hex: "#c8ae87" },
+  { name: "Khaki", hex: "#97906b" }, { name: "Mocha", hex: "#6d543c" },
+  { name: "Charcoal", hex: "#3b3833" }, { name: "Ink", hex: "#1c1a17" },
+];
 
 function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -91,6 +117,8 @@ export default function AdminProductsPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [drafts, setDrafts] = useState<Record<string, InventoryDraft>>({});
+  const [pricingDrafts, setPricingDrafts] = useState<Record<string, PricingDraft>>({});
+  const [savingPrice, setSavingPrice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -122,6 +150,7 @@ export default function AdminProductsPage() {
           });
         });
         setDrafts(nextDrafts);
+        setPricingDrafts(Object.fromEntries(response.data.map((product) => [product.slug, { price: String(product.price), currency: product.currency ?? "USD" }])));
       })
       .catch((requestError) => {
         if (cancelled) return;
@@ -158,6 +187,21 @@ export default function AdminProductsPage() {
     setDrafts((current) => ({ ...current, [key]: { ...current[key], ...partial } }));
   };
 
+  const savePricing = async (product: Product) => {
+    const draft = pricingDrafts[product.slug];
+    if (!draft) return;
+    setSavingPrice(product.slug);
+    try {
+      const response = await api<{ data: Product }>(`/admin/products/${product.slug}`, { method: "PUT", body: JSON.stringify({ price: Number(draft.price), currency: draft.currency }) });
+      setProducts((current) => current.map((item) => item.slug === product.slug ? response.data : item));
+      pushToast("Product price updated");
+    } catch (requestError) {
+      pushToast(requestError instanceof Error ? requestError.message : "Price update failed");
+    } finally {
+      setSavingPrice(null);
+    }
+  };
+
   const applyInventory = async (product: Product, variant?: ProductVariant) => {
     const key = draftKey(product, variant);
     const draft = drafts[key] ?? initialDraft(variant, product);
@@ -187,19 +231,31 @@ export default function AdminProductsPage() {
     event.preventDefault();
     setCreating(true);
     try {
-      let imageUrl: string | undefined;
-      if (newProduct.image_file) {
+      const images = await Promise.all(newProduct.image_files.map(async (file, index) => {
         const imageForm = new FormData();
-        imageForm.append("image", newProduct.image_file);
+        imageForm.append("image", file);
         const uploaded = await api<{ data: { url: string } }>("/admin/products/image", { method: "POST", body: imageForm });
-        imageUrl = uploaded.data.url;
-      }
+        return { url: uploaded.data.url, alt: newProduct.name.trim(), sort_order: index + 1 };
+      }));
+      const sizes = [...newProduct.sizes, newProduct.custom_size.trim()].filter(Boolean);
+      const variantSizes = sizes.length ? sizes : newProduct.colors.length ? ["One Size"] : [];
+      const variantColors = newProduct.colors.length ? newProduct.colors : [null];
+      const variants = variantSizes.flatMap((size) => variantColors.map((color, index) => ({
+        size,
+        color: color?.name,
+        color_hex: color?.hex,
+        sku: `${newProduct.sku.trim()}-${size}-${color?.name ?? index + 1}`.replace(/\s+/g, "-").toUpperCase(),
+        price: Number(newProduct.price),
+        stock_quantity: Number(newProduct.stock_quantity),
+      })));
       const payload = {
         name: newProduct.name.trim(),
         slug: newProduct.slug.trim() || slugify(newProduct.name),
         category: newProduct.category,
+        subcategory: newProduct.subcategory.trim() || undefined,
         sku: newProduct.sku.trim(),
         price: Number(newProduct.price),
+        currency: newProduct.currency,
         stock_quantity: Number(newProduct.stock_quantity),
         brand: newProduct.brand.trim() || "JAAJ",
         weight: newProduct.weight ? Number(newProduct.weight) : undefined,
@@ -207,7 +263,8 @@ export default function AdminProductsPage() {
         badge: newProduct.badge || undefined,
         description: newProduct.description.trim(),
         short_description: newProduct.description.trim().slice(0, 500),
-        images: imageUrl ? [{ url: imageUrl, alt: newProduct.name.trim() }] : [],
+        images,
+        variants,
       };
       const response = await api<{ data: Product }>("/admin/products", { method: "POST", body: JSON.stringify(payload) });
       setProducts((current) => [response.data, ...current]);
@@ -221,6 +278,30 @@ export default function AdminProductsPage() {
       setCreating(false);
     }
   };
+
+  const toggleSize = (size: string) => setNewProduct((current) => ({
+    ...current,
+    sizes: current.sizes.includes(size) ? current.sizes.filter((item) => item !== size) : [...current.sizes, size],
+  }));
+
+  const toggleColor = (color: { name: string; hex: string }) => setNewProduct((current) => ({
+    ...current,
+    colors: current.colors.some((item) => item.name === color.name) ? current.colors.filter((item) => item.name !== color.name) : [...current.colors, color],
+  }));
+
+  const addCustomColor = () => setNewProduct((current) => {
+    const name = current.custom_color_name.trim();
+    if (!name || current.colors.some((color) => color.name.toLowerCase() === name.toLowerCase())) return current;
+    return { ...current, colors: [...current.colors, { name, hex: current.custom_color_hex }], custom_color_name: "" };
+  });
+
+  const moveImage = (index: number, direction: -1 | 1) => setNewProduct((current) => {
+    const next = [...current.image_files];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return current;
+    [next[index], next[target]] = [next[target], next[index]];
+    return { ...current, image_files: next };
+  });
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6 lg:py-16">
@@ -293,14 +374,21 @@ export default function AdminProductsPage() {
             <Field label="Product name" htmlFor="new-product-name"><Input id="new-product-name" required value={newProduct.name} onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value, slug: current.slug || slugify(event.target.value) }))} /></Field>
             <Field label="Slug" htmlFor="new-product-slug"><Input id="new-product-slug" required value={newProduct.slug} onChange={(event) => setNewProduct((current) => ({ ...current, slug: event.target.value }))} /></Field>
             <Field label="SKU" htmlFor="new-product-sku"><Input id="new-product-sku" required value={newProduct.sku} onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))} /></Field>
-            <Field label="Category" htmlFor="new-product-category"><Select id="new-product-category" value={newProduct.category} onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))}><option value="women">Women</option><option value="men">Men</option><option value="accessories">Accessories</option></Select></Field>
+            <Field label="Category" htmlFor="new-product-category"><Select id="new-product-category" value={newProduct.category} onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))}><option value="women">Women</option><option value="men">Men</option><option value="kids">Kids</option><option value="decor">Decor</option><option value="accessories">Accessories</option></Select></Field>
+            <Field label="Subcategory" htmlFor="new-product-subcategory" hint="Optional. Type a new name to create it under this category."><Input id="new-product-subcategory" value={newProduct.subcategory} onChange={(event) => setNewProduct((current) => ({ ...current, subcategory: event.target.value }))} placeholder="Shoes, shirts, trousers…" /></Field>
             <Field label="Price" htmlFor="new-product-price"><Input id="new-product-price" required type="number" min="0" step="0.01" value={newProduct.price} onChange={(event) => setNewProduct((current) => ({ ...current, price: event.target.value }))} /></Field>
+            <Field label="Price currency" htmlFor="new-product-currency"><Select id="new-product-currency" value={newProduct.currency} onChange={(event) => setNewProduct((current) => ({ ...current, currency: event.target.value }))}><option value="USD">USD — US Dollar</option><option value="BDT">BDT — Bangladeshi Taka</option><option value="GBP">GBP — British Pound</option></Select></Field>
             <Field label="Stock quantity" htmlFor="new-product-stock"><Input id="new-product-stock" required type="number" min="0" value={newProduct.stock_quantity} onChange={(event) => setNewProduct((current) => ({ ...current, stock_quantity: event.target.value }))} /></Field>
             <Field label="Brand" htmlFor="new-product-brand"><Input id="new-product-brand" value={newProduct.brand} onChange={(event) => setNewProduct((current) => ({ ...current, brand: event.target.value }))} /></Field>
             <Field label="Weight" htmlFor="new-product-weight"><Input id="new-product-weight" type="number" min="0" step="0.001" value={newProduct.weight} onChange={(event) => setNewProduct((current) => ({ ...current, weight: event.target.value }))} /></Field>
             <Field label="Weight unit" htmlFor="new-product-weight-unit"><Select id="new-product-weight-unit" value={newProduct.weight_unit} onChange={(event) => setNewProduct((current) => ({ ...current, weight_unit: event.target.value }))}><option value="g">g</option><option value="kg">kg</option><option value="lb">lb</option><option value="oz">oz</option></Select></Field>
             <Field label="Badge" htmlFor="new-product-badge"><Select id="new-product-badge" value={newProduct.badge} onChange={(event) => setNewProduct((current) => ({ ...current, badge: event.target.value }))}><option value="">None</option><option value="New">New</option><option value="Bestseller">Bestseller</option><option value="Sale">Sale</option></Select></Field>
-            <Field label="Product image" htmlFor="new-product-image"><Input id="new-product-image" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setNewProduct((current) => ({ ...current, image_file: event.target.files?.[0] ?? null }))} /></Field>
+            <Field label="Product images" htmlFor="new-product-image" hint="Upload one or more JPG, PNG, or WEBP files."><Input id="new-product-image" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => setNewProduct((current) => ({ ...current, image_files: Array.from(event.target.files ?? []) }))} /></Field>
+          </div>
+          {newProduct.image_files.length > 0 && <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">{newProduct.image_files.map((file, index) => <div key={`${file.name}-${index}`} className="relative border border-line p-2 dark:border-line-dark"><img src={URL.createObjectURL(file)} alt={`Preview ${index + 1}`} className="aspect-square w-full object-cover" /><div className="mt-2 flex justify-between gap-1 text-xs"><button type="button" disabled={index === 0} onClick={() => moveImage(index, -1)}>← Move</button><button type="button" onClick={() => setNewProduct((current) => ({ ...current, image_files: current.image_files.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button><button type="button" disabled={index === newProduct.image_files.length - 1} onClick={() => moveImage(index, 1)}>Move →</button></div></div>)}</div>}
+          <div className="mt-5 grid gap-5 border-y border-line py-5 dark:border-line-dark lg:grid-cols-2">
+            <fieldset><legend className="text-xs font-bold tracking-[0.14em] uppercase">Optional sizes</legend><div className="mt-3 flex flex-wrap gap-2">{DEFAULT_SIZES.map((size) => <button key={size} type="button" onClick={() => toggleSize(size)} className={cn("border px-3 py-2 text-xs font-semibold", newProduct.sizes.includes(size) ? "border-ink bg-ink text-paper dark:border-linen dark:bg-linen dark:text-nox" : "border-line dark:border-line-dark")}>{size}</button>)}</div><Input className="mt-3" value={newProduct.custom_size} onChange={(event) => setNewProduct((current) => ({ ...current, custom_size: event.target.value }))} placeholder="Custom size, e.g. 32W" /></fieldset>
+            <fieldset><legend className="text-xs font-bold tracking-[0.14em] uppercase">Optional colours</legend><div className="mt-3 flex flex-wrap gap-2">{DEFAULT_COLORS.map((color) => <button key={color.name} type="button" onClick={() => toggleColor(color)} className={cn("flex items-center gap-2 border px-2 py-2 text-xs font-semibold", newProduct.colors.some((item) => item.name === color.name) ? "border-ink dark:border-linen" : "border-line dark:border-line-dark")}><span className="h-4 w-4 rounded-full border" style={{ backgroundColor: color.hex }} />{color.name}</button>)}</div><div className="mt-3 flex gap-2"><Input type="color" aria-label="Custom colour" value={newProduct.custom_color_hex} onChange={(event) => setNewProduct((current) => ({ ...current, custom_color_hex: event.target.value }))} className="h-10 w-12 p-1" /><Input value={newProduct.custom_color_name} onChange={(event) => setNewProduct((current) => ({ ...current, custom_color_name: event.target.value }))} placeholder="Custom colour name" /><Button type="button" size="sm" variant="outline" onClick={addCustomColor}>Add</Button></div></fieldset>
           </div>
           <Field label="Description" htmlFor="new-product-description" className="mt-4"><textarea id="new-product-description" required rows={4} value={newProduct.description} onChange={(event) => setNewProduct((current) => ({ ...current, description: event.target.value }))} className="w-full border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-bronze dark:border-line-dark dark:bg-nox dark:text-linen" /></Field>
           <div className="mt-5 flex justify-end"><Button type="submit" icon={Plus} loading={creating}>Create Product</Button></div>
@@ -364,6 +452,7 @@ export default function AdminProductsPage() {
             </p>
             {products.map((product) => {
               const variants = product.variants?.length ? product.variants : [undefined];
+              const pricing = pricingDrafts[product.slug] ?? { price: String(product.price), currency: product.currency ?? "USD" };
               return (
                 <section key={product.slug} className="border border-line bg-cream dark:border-line-dark dark:bg-nox2">
                   <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line p-5 dark:border-line-dark">
@@ -379,6 +468,11 @@ export default function AdminProductsPage() {
                     <span className={cn("px-3 py-1 text-[10px] font-bold tracking-[0.14em] uppercase", statusTone(product.inventoryStatus))}>
                       {product.inventoryStatus?.replace(/_/g, " ") ?? "in stock"}
                     </span>
+                  </div>
+                  <div className="grid gap-3 border-b border-line p-5 sm:grid-cols-[1fr_180px_auto] sm:items-end dark:border-line-dark">
+                    <Field label="Price" htmlFor={`${product.slug}-price`}><Input id={`${product.slug}-price`} type="number" min="0" step="0.01" value={pricing.price} onChange={(event) => setPricingDrafts((current) => ({ ...current, [product.slug]: { ...pricing, price: event.target.value } }))} /></Field>
+                    <Field label="Currency" htmlFor={`${product.slug}-currency`}><Select id={`${product.slug}-currency`} value={pricing.currency} onChange={(event) => setPricingDrafts((current) => ({ ...current, [product.slug]: { ...pricing, currency: event.target.value } }))}><option value="USD">USD</option><option value="BDT">BDT</option><option value="GBP">GBP</option></Select></Field>
+                    <Button type="button" variant="outline" size="sm" loading={savingPrice === product.slug} onClick={() => void savePricing(product)}>Save price</Button>
                   </div>
 
                   <div className="divide-y divide-line dark:divide-line-dark">

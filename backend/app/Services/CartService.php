@@ -13,7 +13,9 @@ use Illuminate\Validation\ValidationException;
 class CartService
 {
     public const FREE_SHIPPING_THRESHOLD = 200.00;
+
     public const STANDARD_SHIPPING = 9.95;
+
     public const EXPRESS_SHIPPING = 18.00;
 
     public function resolve(?User $user, ?string $token = null): Cart
@@ -30,6 +32,11 @@ class CartService
     public function add(Cart $cart, string $productExternalId, string $size, int $quantity = 1, ?string $color = null): Cart
     {
         $product = Product::query()->active()->where('external_id', $productExternalId)->firstOrFail();
+        $cart = $this->load($cart);
+        $existingCurrency = $this->currency($cart);
+        if ($cart->items->isNotEmpty() && strtoupper((string) $product->currency) !== $existingCurrency) {
+            throw ValidationException::withMessages(['product_id' => "Your bag contains {$existingCurrency} items. Complete that order before adding an item priced in {$product->currency}."]);
+        }
         $variant = $this->variantFor($product, $size, $color);
 
         if (! $product->in_stock || $product->stock_quantity <= 0 || $variant->stock_quantity < $quantity) {
@@ -105,6 +112,13 @@ class CartService
             'tax' => 0.0,
             'total' => round($subtotal - $discount + ($subtotal > 0 ? $shipping : 0.0), 2),
         ];
+    }
+
+    public function currency(Cart $cart): string
+    {
+        $firstItem = $cart->items->first();
+
+        return strtoupper((string) ($firstItem?->product?->currency ?? config('payments.store_currency', 'USD')));
     }
 
     public function load(Cart $cart): Cart

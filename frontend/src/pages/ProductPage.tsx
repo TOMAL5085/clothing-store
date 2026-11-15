@@ -64,14 +64,14 @@ export default function ProductPage() {
   const lowStockMessage = `Low stock${product.availableStock ? ` - ${product.availableStock} left` : ""} - ships within 24 hours`;
 
   const addToBag = async () => {
-    if (!size) {
+    if (product.sizes.length > 0 && !size) {
       setSizeError(true);
       pushToast("Select a size first");
       return;
     }
     setSizeError(false);
     try {
-      await addItem(product.id, size, qty, color);
+      await addItem(product.id, size ?? "One Size", qty, color);
       trackAddToCart({ productId: product.id, slug: product.slug, quantity: qty });
     pushToast(`${product.name} — added to bag`);
     setMiniCartOpen(true);
@@ -110,7 +110,7 @@ export default function ProductPage() {
               {product.name}
             </h1>
             <Rating value={product.rating} reviews={product.reviews} />
-            <Price amount={product.price} compareAt={product.compareAt} large />
+            <Price amount={product.price} compareAt={product.compareAt} currency={product.currency} large />
           </div>
 
           <p className="border-y border-line py-5 text-sm leading-relaxed text-smoke dark:border-line-dark dark:text-linen-dim">
@@ -118,7 +118,7 @@ export default function ProductPage() {
           </p>
 
           {/* Colour */}
-          <fieldset>
+          {product.colors.length > 0 && <fieldset>
             <legend className="mb-2.5 text-[11px] font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">
               Colour — <span className="text-smoke dark:text-linen-dim">{color}</span>
             </legend>
@@ -140,10 +140,10 @@ export default function ProductPage() {
                 />
               ))}
             </div>
-          </fieldset>
+          </fieldset>}
 
           {/* Size */}
-          <fieldset>
+          {product.sizes.length > 0 && <fieldset>
             <legend className="mb-2.5 flex w-full items-center justify-between text-[11px] font-bold tracking-[0.18em] uppercase text-ink dark:text-linen">
               <span>
                 Size {sizeError && <span className="ml-2 text-red-700 normal-case dark:text-red-400" role="alert">— please select</span>}
@@ -179,7 +179,7 @@ export default function ProductPage() {
                 </button>
               ))}
             </div>
-          </fieldset>
+          </fieldset>}
 
           {/* Quantity + CTA */}
           <div className="flex flex-wrap items-stretch gap-3">

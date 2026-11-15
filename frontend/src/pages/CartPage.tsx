@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Lock, ShoppingBag, Tag } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import { useCurrencyStore } from "@/store/currencyStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { Button, EmptyState, LinkButton, Price, QuantityStepper, Input } from "@/components/ui/primitives";
 import { usePageTitle } from "@/utils/usePageTitle";
@@ -25,8 +24,7 @@ export function useCartTotals() {
 
 export default function CartPage() {
   usePageTitle("Your Bag");
-  const { setQty, removeItem, promo, setPromo, loadCart, summary, error } = useCartStore();
-  const format = useCurrencyStore((s) => s.format);
+  const { setQty, removeItem, promo, setPromo, loadCart, summary, currency, error } = useCartStore();
   const { lines, count } = useCartTotals();
 
   const [promoInput, setPromoInput] = useState("");
@@ -103,12 +101,12 @@ export default function CartPage() {
                       <p className="mt-1 text-xs tracking-[0.12em] uppercase text-smoke dark:text-linen-dim">
                         {product?.category ?? "Item"} / Size {line.size}{line.color ? ` / ${line.color}` : ""}
                       </p>
-                      <Price amount={unitPrice} className="mt-2" />
+                      <Price amount={unitPrice} currency={line.currency ?? product?.currency ?? currency} className="mt-2" />
                       {line.availableStock !== undefined && line.availableStock <= line.qty && (
                         <p className="mt-2 text-xs font-semibold text-bronze">Only {line.availableStock} available</p>
                       )}
                     </div>
-                    <Price amount={lineTotal} large className="shrink-0" />
+                    <Price amount={lineTotal} currency={line.currency ?? product?.currency ?? currency} large className="shrink-0" />
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <QuantityStepper
@@ -171,25 +169,25 @@ export default function CartPage() {
           <dl className="space-y-3 border-y border-line py-5 text-sm dark:border-line-dark">
             <div className="flex justify-between">
               <dt className="text-smoke dark:text-linen-dim">Subtotal</dt>
-              <dd className="font-semibold text-ink dark:text-linen">{format(summary.subtotal)}</dd>
+              <dd className="font-semibold text-ink dark:text-linen">{new Intl.NumberFormat(currency === "BDT" ? "bn-BD" : "en-US", { style: "currency", currency }).format(summary.subtotal)}</dd>
             </div>
             {summary.discount > 0 && (
               <div className="flex justify-between text-bronze">
                 <dt>Member code</dt>
-                <dd className="font-semibold">-{format(summary.discount)}</dd>
+                <dd className="font-semibold">-{new Intl.NumberFormat(currency === "BDT" ? "bn-BD" : "en-US", { style: "currency", currency }).format(summary.discount)}</dd>
               </div>
             )}
             <div className="flex justify-between">
               <dt className="text-smoke dark:text-linen-dim">Shipping</dt>
               <dd className="font-semibold text-ink dark:text-linen">
-                {summary.shipping === 0 ? "Complimentary" : format(summary.shipping)}
+                {summary.shipping === 0 ? "Complimentary" : new Intl.NumberFormat(currency === "BDT" ? "bn-BD" : "en-US", { style: "currency", currency }).format(summary.shipping)}
               </dd>
             </div>
           </dl>
 
           <div className="flex items-baseline justify-between">
             <span className="text-xs font-bold tracking-[0.2em] uppercase text-ink dark:text-linen">Total</span>
-            <Price amount={summary.total} large />
+            <Price amount={summary.total} currency={currency} large />
           </div>
 
           <LinkButton to="/checkout" size="lg" className="w-full" icon={Lock}>

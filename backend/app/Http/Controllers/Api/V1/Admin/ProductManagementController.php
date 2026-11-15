@@ -31,7 +31,7 @@ class ProductManagementController extends Controller
         ]);
 
         $products = Product::query()
-            ->with(['category', 'images', 'variants.size', 'variants.color'])
+            ->with(['category.parent', 'images', 'variants.size', 'variants.color'])
             ->when(($validated['status'] ?? 'all') === 'active', fn ($query) => $query->where('is_active', true))
             ->when(($validated['status'] ?? 'all') === 'inactive', fn ($query) => $query->where('is_active', false))
             ->when($validated['q'] ?? null, function ($query, string $search) {
@@ -124,7 +124,7 @@ class ProductManagementController extends Controller
 
             $this->syncProductInventory($product->refresh());
 
-            return $product->load(['category', 'images', 'variants.size', 'variants.color']);
+            return $product->load(['category.parent', 'images', 'variants.size', 'variants.color']);
         }));
 
         $audit->log('inventory.adjusted', $request->user(), $product, [
@@ -140,15 +140,24 @@ class ProductManagementController extends Controller
     private function persistProduct(Product $product, array $data): Product
     {
         if (isset($data['category'])) {
-            $data['category_id'] = Category::where('slug', $data['category'])->value('id');
+            $category = Category::where('slug', $data['category'])->firstOrFail();
+            if (! empty($data['subcategory'])) {
+                $subcategory = trim($data['subcategory']);
+                $category = Category::firstOrCreate(
+                    ['slug' => $category->slug.'-'.Str::slug($subcategory)],
+                    ['label' => $subcategory, 'parent_id' => $category->id, 'sort_order' => 99, 'is_active' => true],
+                );
+            }
+            $data['category_id'] = $category->id;
         }
 
         $images = $data['images'] ?? null;
         $variants = $data['variants'] ?? null;
-        unset($data['images'], $data['variants'], $data['category']);
+        unset($data['images'], $data['variants'], $data['category'], $data['subcategory']);
 
         $data['external_id'] ??= Str::slug($data['slug'] ?? $data['name']);
         $data['brand'] ??= 'JAAJ';
+        $data['currency'] = strtoupper($data['currency'] ?? $product->currency ?? 'USD');
         $data['details'] ??= [];
         $data['is_active'] ??= true;
         $data['in_stock'] = ($data['stock_quantity'] ?? $product->stock_quantity ?? 0) > 0;
@@ -204,7 +213,7 @@ class ProductManagementController extends Controller
             $this->syncProductInventory($product);
         }
 
-        return $product->load(['category', 'images', 'variants.size', 'variants.color']);
+        return $product->load(['category.parent', 'images', 'variants.size', 'variants.color']);
     }
 
     private function syncProductInventory(Product $product): void

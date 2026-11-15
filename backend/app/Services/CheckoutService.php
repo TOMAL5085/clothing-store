@@ -43,7 +43,7 @@ class CheckoutService
             'provider' => $demo ? 'demo' : $intended,
             'intended_provider' => $intended,
             'payment_mode' => $demo ? 'demo' : 'gateways',
-            'currency' => strtoupper((string) config('payments.store_currency', 'USD')),
+            'currency' => $this->cartService->currency($cart),
             'delivery_method' => $method,
             ...$totals,
         ];
@@ -66,7 +66,7 @@ class CheckoutService
         $countryCode = CountryResolver::normalize($addressData['country']);
         $intendedProvider = CountryResolver::providerForCountryCode($countryCode);
         $provider = $this->isDemo() ? 'demo' : $intendedProvider;
-        $currency = strtoupper((string) config('payments.store_currency', 'USD'));
+        $currency = $this->cartService->currency($cart);
 
         if ($cart->promo_code) {
             $coupon = $this->cartService->coupon($cart);

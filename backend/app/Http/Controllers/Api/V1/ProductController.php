@@ -26,10 +26,10 @@ class ProductController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $query = Product::query()->active()->with(['category', 'images', 'variants.size', 'variants.color']);
+        $query = Product::query()->active()->with(['category.parent', 'images', 'variants.size', 'variants.color']);
 
         if ($request->filled('category')) {
-            $query->whereHas('category', fn ($q) => $q->where('slug', $validated['category']));
+            $query->whereHas('category', fn ($q) => $q->where('slug', $validated['category'])->orWhereHas('parent', fn ($parent) => $parent->where('slug', $validated['category'])));
         }
 
         if ($request->filled('q')) {
@@ -90,17 +90,17 @@ class ProductController extends Controller
     {
         abort_unless($product->is_active, 404);
 
-        return ProductResource::make($product->load(['category', 'images', 'variants.size', 'variants.color']));
+        return ProductResource::make($product->load(['category.parent', 'images', 'variants.size', 'variants.color']));
     }
 
     public function featured()
     {
-        return ProductResource::collection(Product::active()->where('is_featured', true)->with(['category', 'images', 'variants.size', 'variants.color'])->limit(12)->get());
+        return ProductResource::collection(Product::active()->where('is_featured', true)->with(['category.parent', 'images', 'variants.size', 'variants.color'])->limit(12)->get());
     }
 
     public function related(Product $product)
     {
-        return ProductResource::collection(Product::active()->where('category_id', $product->category_id)->whereKeyNot($product->id)->with(['category', 'images', 'variants.size', 'variants.color'])->limit(4)->get());
+        return ProductResource::collection(Product::active()->where('category_id', $product->category_id)->whereKeyNot($product->id)->with(['category.parent', 'images', 'variants.size', 'variants.color'])->limit(4)->get());
     }
 
     private function arrayInput(mixed $value): array
