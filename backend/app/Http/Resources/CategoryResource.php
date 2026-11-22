@@ -29,6 +29,7 @@ class CategoryResource extends JsonResource
                     'label' => $this->parent->label,
                 ];
             }),
+            'children' => CategoryResource::collection($this->whenLoaded('children')),
             'has_children' => $this->when($this->relationLoaded('children'), $this->children->count(), $this->children()->exists()),
         ];
     }

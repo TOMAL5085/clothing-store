@@ -134,6 +134,7 @@ import { Footer } from "@/components/layout/Footer";
 import { MiniCartDrawer } from "@/components/cart/MiniCartDrawer";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
+import { CategoryDrawer } from "@/components/layout/CategoryDrawer";
 import { ConsentBanner } from "@/components/ConsentBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Logo } from "@/components/brand/Logo";
@@ -150,6 +151,7 @@ import { MarketingScripts } from "@/components/MarketingScripts";
 /* Route-level code splitting with React.lazy + Suspense (Part 4 §93) */
 const HomePage = lazy(() => import("@/pages/HomePage"));
 const ShopPage = lazy(() => import("@/pages/ShopPage"));
+const CategoriesPage = lazy(() => import("@/pages/CategoriesPage"));
 const ProductPage = lazy(() => import("@/pages/ProductPage"));
 const CartPage = lazy(() => import("@/pages/CartPage"));
 const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
@@ -282,6 +284,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/shop" element={<ShopPage />} />
+                <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/decor" element={<ShopPage />} />
                 <Route path="/product/:slug" element={<ProductPage />} />
                 <Route path="/cart" element={<CartPage />} />
@@ -354,6 +357,7 @@ export default function App() {
         </div>
         {/* 2. নিচে মোবাইল নেভিগেশন কম্পোনেন্ট বসিয়ে দিন */}
         <MobileNavDrawer />
+        <CategoryDrawer />
         <MiniCartDrawer />
         <SearchOverlay />
         <Toasts />

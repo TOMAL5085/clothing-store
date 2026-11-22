@@ -25,7 +25,7 @@ class CategoryController extends Controller
         }
 
         return CategoryResource::collection(
-            $query->orderBy('sort_order')->orderBy('id')->get()
+            $query->with('children')->orderBy('sort_order')->orderBy('id')->get()
         );
     }
 }

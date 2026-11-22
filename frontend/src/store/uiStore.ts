@@ -21,6 +21,9 @@ interface UiState {
   mobileNavOpen: boolean;
   setMobileNavOpen: (open: boolean) => void;
   toggleMobileNav: () => void;
+  categoryDrawerOpen: boolean;
+  setCategoryDrawerOpen: (open: boolean) => void;
+  toggleCategoryDrawer: () => void;
   // Toasts (ephemeral)
   toasts: Toast[];
   pushToast: (message: string, durationMs?: number) => void;
@@ -88,6 +91,10 @@ export const useUiStore = create<UiState>()(
       setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
       toggleMobileNav: () =>
         set((state) => ({ mobileNavOpen: !state.mobileNavOpen })),
+      categoryDrawerOpen: false,
+      setCategoryDrawerOpen: (open) => set({ categoryDrawerOpen: open }),
+      toggleCategoryDrawer: () =>
+        set((state) => ({ categoryDrawerOpen: !state.categoryDrawerOpen })),
 
       toasts: [],
       pushToast: (message, durationMs = DEFAULT_TOAST_MS) => {

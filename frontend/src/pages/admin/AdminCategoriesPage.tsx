@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { RefreshCcw, Save, Search, ShieldAlert, Trash2, X } from "lucide-react";
+import { Plus, RefreshCcw, Save, Search, ShieldAlert, Trash2, X } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PaginationMeta } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
@@ -100,7 +100,9 @@ export default function AdminCategoriesPage() {
     if (user?.role !== "admin") return;
     api<CategoryCollection>("/admin/categories?status=all&per_page=100")
       .then((response) => {
-        const options: CategoryOption[] = response.data.map((c) => ({ id: c.id, label: c.label }));
+        const options: CategoryOption[] = response.data
+          .filter((c) => c.parent_id === null)
+          .map((c) => ({ id: c.id, label: c.label }));
         setParentOptions(options);
       })
       .catch(() => setParentOptions([]));
@@ -171,6 +173,12 @@ export default function AdminCategoriesPage() {
       }
       setFormOpen(false);
       await reload();
+      const parentResponse = await api<CategoryCollection>("/admin/categories?status=all&per_page=100");
+      setParentOptions(
+        parentResponse.data
+          .filter((category) => category.parent_id === null)
+          .map((category) => ({ id: category.id, label: category.label })),
+      );
     } catch (requestError) {
       setErrors((requestError as any)?.errors ?? {});
       pushToast(requestError instanceof Error ? requestError.message : "Save failed");
@@ -197,12 +205,13 @@ export default function AdminCategoriesPage() {
           <p className="text-[11px] font-bold tracking-[0.24em] uppercase text-bronze">Admin</p>
           <h1 className="mt-2 font-display text-4xl text-ink sm:text-5xl dark:text-linen">Categories</h1>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Link to="/admin/products" className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim">Inventory</Link>
           <Link to="/admin/orders" className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim">Orders</Link>
           <Link to="/admin/content" className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim">Content</Link>
           <Link to="/admin/brands" className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim">Brands</Link>
           <Link to="/account" className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim">Account</Link>
+          <Button type="button" size="sm" icon={Plus} onClick={openCreate}>Add category</Button>
         </div>
       </div>
 

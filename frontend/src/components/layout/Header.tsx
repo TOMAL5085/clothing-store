@@ -302,6 +302,7 @@ import {
   Sun,
   User,
   Bell,
+  PanelLeftOpen,
 } from "lucide-react";
 import { PRIMARY_NAV } from "@/data/navigation";
 import { useCartStore, selectCartCount } from "@/store/cartStore";
@@ -354,6 +355,8 @@ export function Header() {
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
   const toggleMobileNav = useUiStore((s) => s.toggleMobileNav);
+  const categoryDrawerOpen = useUiStore((s) => s.categoryDrawerOpen);
+  const toggleCategoryDrawer = useUiStore((s) => s.toggleCategoryDrawer);
   const setSearchOpen = useUiStore((s) => s.setSearchOpen);
   const { user } = useAuthStore();
   const { unreadCount, fetchUnreadCount } = useNotificationStore();
@@ -392,6 +395,15 @@ export function Header() {
             className="-ml-2 lg:hidden"
           >
             <Menu size={19} strokeWidth={1.6} absoluteStrokeWidth />
+          </IconButton>
+          <IconButton
+            label={categoryDrawerOpen ? "Close categories" : "Browse categories"}
+            onClick={toggleCategoryDrawer}
+            expanded={categoryDrawerOpen}
+            controls="category-navigation"
+            className="-ml-2 hidden lg:flex"
+          >
+            <PanelLeftOpen size={19} strokeWidth={1.6} absoluteStrokeWidth />
           </IconButton>
           <Link to="/" aria-label="JAAJ — home" className="flex items-center">
             <img

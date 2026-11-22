@@ -78,6 +78,14 @@ export function MobileNavDrawer() {
               aria-label="Mobile"
               className="flex-1 overflow-y-auto px-5 py-6"
             >
+              <Link
+                to="/categories"
+                onClick={() => setOpen(false)}
+                className="mb-5 flex items-center justify-between border-b border-line pb-5 font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-bronze"
+              >
+                Browse all categories
+                <span aria-hidden="true">→</span>
+              </Link>
               <ul className="space-y-1">
                 {PRIMARY_NAV.map((item, i) => (
                   <motion.li
