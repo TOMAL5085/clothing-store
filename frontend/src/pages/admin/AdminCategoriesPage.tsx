@@ -126,9 +126,9 @@ export default function AdminCategoriesPage() {
     setMeta(response.meta);
   };
 
-  const openCreate = () => {
+  const openCreate = (parentId = "") => {
     setEditingSlug(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, parent_id: parentId });
     setErrors({});
     setFormOpen(true);
   };
@@ -211,7 +211,7 @@ export default function AdminCategoriesPage() {
           <Link to="/admin/content" className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim">Content</Link>
           <Link to="/admin/brands" className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim">Brands</Link>
           <Link to="/account" className="text-xs font-bold tracking-[0.16em] uppercase text-smoke transition-colors hover:text-bronze dark:text-linen-dim">Account</Link>
-          <Button type="button" size="sm" icon={Plus} onClick={openCreate}>Add category</Button>
+          <Button type="button" size="sm" icon={Plus} onClick={() => openCreate()}>Add category</Button>
         </div>
       </div>
 
@@ -274,6 +274,7 @@ export default function AdminCategoriesPage() {
                     {category.is_active ? "Active" : "Inactive"}
                   </span>
                   <div className="flex flex-wrap gap-2">
+                    {!category.parent_id && <Button type="button" size="sm" variant="outline" icon={Plus} onClick={() => openCreate(String(category.id))}>Add subcategory</Button>}
                     <Button type="button" size="sm" variant="outline" onClick={() => openEdit(category)}>Edit</Button>
                     <Button type="button" size="sm" variant="ghost" icon={Trash2} onClick={() => void remove(category.slug)}>Delete</Button>
                   </div>
@@ -320,6 +321,7 @@ export default function AdminCategoriesPage() {
                   ))}
                 </Select>
               </Field>
+              <p className="-mt-2 text-xs text-smoke sm:col-span-2 dark:text-linen-dim">Leave parent empty for a main category. Select a parent to create a subcategory that appears under it in the customer menu.</p>
               <Field label="Sort order" htmlFor="category-sort" error={errors.sort_order?.[0]}>
                 <Input id="category-sort" type="number" min={0} value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))} />
               </Field>

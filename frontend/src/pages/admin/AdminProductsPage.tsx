@@ -17,6 +17,13 @@ interface ProductCollection {
   meta?: PaginationMeta;
 }
 
+interface AdminCategory {
+  id: number;
+  slug: string;
+  label: string;
+  parent_id: number | null;
+}
+
 interface InventoryDraft {
   mode: InventoryMode;
   quantity: string;
@@ -123,6 +130,11 @@ export default function AdminProductsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newProduct, setNewProduct] = useState<NewProductForm>(emptyProductForm);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+
+  const mainCategories = categories.filter((category) => category.parent_id === null);
+  const selectedMainCategory = mainCategories.find((category) => category.slug === newProduct.category);
+  const availableSubcategories = categories.filter((category) => category.parent_id === selectedMainCategory?.id);
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams({ status, per_page: "100" });
@@ -164,6 +176,21 @@ export default function AdminProductsPage() {
       cancelled = true;
     };
   }, [searchParams, user?.role]);
+
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    api<{ data: AdminCategory[] }>("/admin/categories?is_active=true&per_page=100")
+      .then((response) => {
+        setCategories(response.data);
+        const firstCategory = response.data.find((category) => category.parent_id === null);
+        if (firstCategory) {
+          setNewProduct((current) => response.data.some((category) => category.parent_id === null && category.slug === current.category)
+            ? current
+            : { ...current, category: firstCategory.slug, subcategory: "" });
+        }
+      })
+      .catch(() => setCategories([]));
+  }, [user?.role]);
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
@@ -374,8 +401,8 @@ export default function AdminProductsPage() {
             <Field label="Product name" htmlFor="new-product-name"><Input id="new-product-name" required value={newProduct.name} onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value, slug: current.slug || slugify(event.target.value) }))} /></Field>
             <Field label="Slug" htmlFor="new-product-slug"><Input id="new-product-slug" required value={newProduct.slug} onChange={(event) => setNewProduct((current) => ({ ...current, slug: event.target.value }))} /></Field>
             <Field label="SKU" htmlFor="new-product-sku"><Input id="new-product-sku" required value={newProduct.sku} onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))} /></Field>
-            <Field label="Category" htmlFor="new-product-category"><Select id="new-product-category" value={newProduct.category} onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))}><option value="women">Women</option><option value="men">Men</option><option value="kids">Kids</option><option value="decor">Decor</option><option value="accessories">Accessories</option></Select></Field>
-            <Field label="Subcategory" htmlFor="new-product-subcategory" hint="Optional. Type a new name to create it under this category."><Input id="new-product-subcategory" value={newProduct.subcategory} onChange={(event) => setNewProduct((current) => ({ ...current, subcategory: event.target.value }))} placeholder="Shoes, shirts, trousers…" /></Field>
+            <Field label="Category" htmlFor="new-product-category"><Select id="new-product-category" value={newProduct.category} onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value, subcategory: "" }))}>{mainCategories.length === 0 ? <option value="women">Women</option> : mainCategories.map((category) => <option key={category.id} value={category.slug}>{category.label}</option>)}</Select></Field>
+            <Field label="Subcategory" htmlFor="new-product-subcategory" hint="Optional. Choose an existing subcategory, or type a new one to create it under this category."><Input id="new-product-subcategory" list="product-subcategory-options" value={newProduct.subcategory} onChange={(event) => setNewProduct((current) => ({ ...current, subcategory: event.target.value }))} placeholder="Choose or type a subcategory" /><datalist id="product-subcategory-options">{availableSubcategories.map((category) => <option key={category.id} value={category.label} />)}</datalist></Field>
             <Field label="Price" htmlFor="new-product-price"><Input id="new-product-price" required type="number" min="0" step="0.01" value={newProduct.price} onChange={(event) => setNewProduct((current) => ({ ...current, price: event.target.value }))} /></Field>
             <Field label="Price currency" htmlFor="new-product-currency"><Select id="new-product-currency" value={newProduct.currency} onChange={(event) => setNewProduct((current) => ({ ...current, currency: event.target.value }))}><option value="USD">USD — US Dollar</option><option value="BDT">BDT — Bangladeshi Taka</option><option value="GBP">GBP — British Pound</option></Select></Field>
             <Field label="Stock quantity" htmlFor="new-product-stock"><Input id="new-product-stock" required type="number" min="0" value={newProduct.stock_quantity} onChange={(event) => setNewProduct((current) => ({ ...current, stock_quantity: event.target.value }))} /></Field>

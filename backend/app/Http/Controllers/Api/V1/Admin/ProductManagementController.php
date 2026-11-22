@@ -143,10 +143,16 @@ class ProductManagementController extends Controller
             $category = Category::where('slug', $data['category'])->firstOrFail();
             if (! empty($data['subcategory'])) {
                 $subcategory = trim($data['subcategory']);
-                $category = Category::firstOrCreate(
-                    ['slug' => $category->slug.'-'.Str::slug($subcategory)],
-                    ['label' => $subcategory, 'parent_id' => $category->id, 'sort_order' => 99, 'is_active' => true],
-                );
+                $category = Category::query()
+                    ->where('parent_id', $category->id)
+                    ->where(function ($query) use ($subcategory) {
+                        $query->where('label', $subcategory)
+                            ->orWhere('slug', Str::slug($subcategory));
+                    })
+                    ->first() ?? Category::firstOrCreate(
+                        ['slug' => $category->slug.'-'.Str::slug($subcategory)],
+                        ['label' => $subcategory, 'parent_id' => $category->id, 'sort_order' => 99, 'is_active' => true],
+                    );
             }
             $data['category_id'] = $category->id;
         }
